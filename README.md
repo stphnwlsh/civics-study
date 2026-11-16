@@ -14,7 +14,7 @@ answer. The point was to show her that tech can be fun, look good, and actually 
 
 **Live site:** https://stphnwlsh.github.io/civics-study/ (password protected, because it's hers)
 
-![The home page, showing progress across all 47 questions](docs/images/home.png)
+![The home page: rank, stars, streak and unit stickers](docs/images/home.png)
 
 ## How a question works
 
@@ -28,7 +28,17 @@ Every question is the same five steps, in the same order, so the habit sticks:
 | **4. Check yourself** | A checklist of what a complete answer usually covers, to tick off before peeking. |
 | **5. Compare** | The backup answer with its sources. Trying to reveal it before writing anything gets a polite "try a sentence or two first". She then rates herself: *Nailed it*, *Mostly there* or *Review again*. |
 
-![A question page with two hints and a key term open](docs/images/question.png)
+![A finished question: every step card ticked off and all three stars earned](docs/images/question.png)
+
+### The game part
+
+Kept light on purpose, so it feels like a nudge and not a slot machine:
+
+- **Steps are cards** that collapse as she finishes them and tick themselves off, so a question never feels like one long page.
+- **Three stars per question:** *Write it* (20+ words), *Check it* (most of the self-check ticked) and *Nail it* (rated herself "Nailed it").
+- **Ranks** climb the ladder of civic life as stars add up, from Registered Voter through Poll Worker, City Council Member and U.S. Senator to Supreme Court Justice.
+- **Unit stickers** in the spirit of an "I Voted" sticker, one for each of the six units, earned by answering every question in it.
+- A **study streak**, and a small burst of confetti for "Nailed it" and promotions (skipped for anyone who prefers reduced motion).
 
 The home page tracks progress, picks up where she left off, keeps a review list of anything marked
 *Review again* or *Mostly there*, and can copy every answer as plain text to paste into a document. There's

@@ -13,6 +13,7 @@ const prev = QUESTIONS[idx - 1];
 const next = QUESTIONS[idx + 1];
 const topic = TOPICS[q.topic as keyof typeof TOPICS];
 const total = QUESTIONS.length;
+const pointCounts = JSON.stringify(QUESTIONS.map((x) => x.points.length));
 
 // Research sites. %s is replaced with the search words.
 const tools = [
@@ -26,10 +27,30 @@ const tools = [
   { name: 'Pew Research', url: 'https://www.pewresearch.org/search/%s', note: 'Polls & data' },
   { name: 'Census Bureau', url: 'https://www.census.gov/search-results.html?q=%s', note: 'Voting statistics' },
 ];
+
+const steps = [
+  { n: 1, title: 'Think it through', next: 'Look it up' },
+  { n: 2, title: 'Look it up', next: 'Write your answer' },
+  { n: 3, title: 'Write your answer', next: 'Check yourself' },
+  { n: 4, title: 'Check yourself', next: 'Compare' },
+  { n: 5, title: 'Compare with the backup answer', next: '' },
+];
+
+const answerHtml = q.answer
+  .map((p: string) => (p.startsWith('<ul') ? p : p.startsWith('<table') ? `<div class="table-scroll">${p}</div>` : `<p>${p}</p>`))
+  .join('');
 ---
 
 <Base title={`Question ${q.id}`} current="question" description={q.q}>
-  <main class="wrap qpage" data-id={q.id} data-question={q.q} data-total={total}>
+  <main
+    class="wrap qpage"
+    data-id={q.id}
+    data-question={q.q}
+    data-total={total}
+    data-points={q.points.length}
+    data-all-points={pointCounts}
+    style={`--unit: ${topic.color}`}
+  >
     <nav class="qnav" aria-label="Question navigation">
       {prev ? <a class="btn small ghost" href={`${base}/q/${prev.id}/`} data-key="prev">← {prev.id}</a> : <span />}
       <span class="qcount mono">{q.id} / {total}</span>
@@ -38,128 +59,150 @@ const tools = [
 
     <header class="qhead">
       <div class="qmeta">
-        <span class="chip">{topic.name}</span>
+        <span class="unitchip">{topic.name}</span>
         <span class="save" id="save-state" role="status" aria-live="polite"></span>
       </div>
       <h1 class="qtext">{q.q}</h1>
+      <ol class="starbar" aria-label="Stars for this question">
+        <li data-star="0"><span class="star" aria-hidden="true">★</span> Write it</li>
+        <li data-star="1"><span class="star" aria-hidden="true">★</span> Check it</li>
+        <li data-star="2"><span class="star" aria-hidden="true">★</span> Nail it</li>
+      </ol>
     </header>
 
-    <!-- 1. Think it through -->
-    <section class="step" aria-labelledby="s1">
-      <h2 id="s1"><span class="stepnum">1</span> Think it through</h2>
-      <p class="lead">Read the question twice. What is it actually asking you to do: define, list, compare, or explain?</p>
+    <div class="steps">
+      {steps.map((s) => (
+        <details class="step" data-step={s.n}>
+          <summary>
+            <span class="badge" aria-hidden="true"><span class="num">{s.n}</span><span class="tick">✓</span></span>
+            <span class="stitle">{s.title}</span>
+            <span class="sstatus" data-status-for={s.n}></span>
+            <span class="chev" aria-hidden="true"></span>
+          </summary>
+          <div class="sbody">
+            {s.n === 1 && (
+              <>
+                <p class="lead">Read the question twice. Is it asking you to define, list, compare, or explain?</p>
+                <div class="hints">
+                  <ol class="hintlist">
+                    {q.hints.map((h: string, i: number) => (
+                      <li class="hint" data-hint={i} hidden>
+                        <span class="hint-label">Hint {i + 1}</span>
+                        <span set:html={h} />
+                      </li>
+                    ))}
+                  </ol>
+                  <button type="button" class="btn" id="more-hint">💡 Show a hint <span class="hintcount" id="hint-count">(0 of {q.hints.length})</span></button>
+                </div>
+                <div class="terms">
+                  <h3>Key terms to try to use</h3>
+                  <p class="sub">Tap a term to see what it means. Using these words makes your answer stronger.</p>
+                  <ul class="termlist">
+                    {q.terms.map((t: { t: string; d: string }) => (
+                      <li>
+                        <details>
+                          <summary>{t.t}</summary>
+                          <p>{t.d}</p>
+                        </details>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </>
+            )}
 
-      <div class="hints" id="hints">
-        <ol class="hintlist">
-          {q.hints.map((h: string, i: number) => (
-            <li class="hint" data-hint={i} hidden>
-              <span class="hint-label">Hint {i + 1}</span>
-              <span set:html={h} />
-            </li>
-          ))}
-        </ol>
-        <button type="button" class="btn" id="more-hint">💡 Show a hint <span class="hintcount" id="hint-count">(0 of {q.hints.length})</span></button>
-      </div>
+            {s.n === 2 && (
+              <>
+                <p class="lead">Type what you want to find, or tap a suggestion, then pick where to search. Results open in a new tab.</p>
+                <label class="visually-hidden" for="search-box">Search words</label>
+                <input type="search" id="search-box" value={q.search[0]} autocomplete="off" />
+                <div class="suggest">
+                  {q.search.map((x: string) => <button type="button" class="suggestion" data-s={x}>{x}</button>)}
+                </div>
+                <div class="tools">
+                  {tools.map((t) => (
+                    <a class="tool" data-url={t.url} href={t.url.replace('%s', encodeURIComponent(q.search[0]))} target="_blank" rel="noopener">
+                      <strong>{t.name}</strong>
+                      <span>{t.note}</span>
+                    </a>
+                  ))}
+                </div>
+                <p class="tip">Found a good fact? Paste it into your research notes in the next step, with where it came from.</p>
+              </>
+            )}
 
-      <div class="terms">
-        <h3>Key terms to try to use</h3>
-        <p class="sub">Tap a term to see what it means. Using these words in your answer makes it stronger.</p>
-        <ul class="termlist">
-          {q.terms.map((t: { t: string; d: string }) => (
-            <li>
-              <details>
-                <summary>{t.t}</summary>
-                <p>{t.d}</p>
-              </details>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </section>
+            {s.n === 3 && (
+              <>
+                <label for="answer">My answer</label>
+                <textarea id="answer" rows="7" placeholder="Answer in your own words. Aim for a few complete sentences with an example."></textarea>
+                <div class="meter" aria-hidden="true"><span id="meter-fill"></span></div>
+                <div class="wordcount"><span id="wordcount">0 words</span><span id="wordgoal">20 words earns a star ★</span></div>
+                <label for="notes">Research notes <span class="opt">(facts, quotes, links)</span></label>
+                <textarea id="notes" rows="4" placeholder="Paste facts and where you found them, e.g. 'Census 2024: 65% voted (census.gov)'"></textarea>
+              </>
+            )}
 
-    <!-- 2. Look it up -->
-    <section class="step" aria-labelledby="s2">
-      <h2 id="s2"><span class="stepnum">2</span> Look it up</h2>
-      <p class="lead">Type what you want to find, or tap a suggestion, then pick where to search. Results open in a new tab.</p>
-      <label class="visually-hidden" for="search-box">Search words</label>
-      <input type="search" id="search-box" value={q.search[0]} autocomplete="off" />
-      <div class="suggest">
-        {q.search.map((s: string) => <button type="button" class="suggestion" data-s={s}>{s}</button>)}
-      </div>
-      <div class="tools">
-        {tools.map((t) => (
-          <a class="tool" data-url={t.url} href={t.url.replace('%s', encodeURIComponent(q.search[0]))} target="_blank" rel="noopener">
-            <strong>{t.name}</strong>
-            <span>{t.note}</span>
-          </a>
-        ))}
-      </div>
-      <p class="tip">Tip: when you find a good fact, paste it into your research notes below with where it came from.</p>
-    </section>
+            {s.n === 4 && (
+              <>
+                <p class="lead">A complete answer usually covers these. Tick the ones yours does. Most of them earns a star.</p>
+                <ul class="checks">
+                  {q.points.map((p: string, i: number) => (
+                    <li>
+                      <label><input type="checkbox" data-check={i} /> <span>{p}</span></label>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
 
-    <!-- 3. Write your answer -->
-    <section class="step" aria-labelledby="s3">
-      <h2 id="s3"><span class="stepnum">3</span> Write your answer</h2>
-      <label for="answer">My answer</label>
-      <textarea id="answer" rows="8" placeholder="Answer in your own words. Aim for a few complete sentences with an example."></textarea>
-      <div class="wordcount mono" id="wordcount">0 words</div>
-      <label for="notes">Research notes <span class="opt">(facts, quotes, links)</span></label>
-      <textarea id="notes" rows="5" placeholder="Paste facts and where you found them, e.g. 'Census 2024: 65% voted — census.gov'"></textarea>
-    </section>
+            {s.n === 5 && (
+              <>
+                <div id="gate">
+                  <button type="button" class="btn primary" id="reveal">Show the backup answer</button>
+                  <p class="nudge" id="nudge" hidden>
+                    Try writing a sentence or two first. You'll remember it much better.
+                    <button type="button" class="linklike" id="reveal-anyway">Show it anyway</button>
+                  </p>
+                </div>
+                <article class="backup" id="backup" hidden>
+                  <div class="backup-body" set:html={answerHtml} />
+                  {q.sources.length > 0 && (
+                    <div class="sources">
+                      <h3>Sources</h3>
+                      <ul>
+                        {q.sources.map((src: { label: string; url: string }) => (
+                          <li><a href={src.url} target="_blank" rel="noopener">{src.label}</a></li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  <div class="rate">
+                    <h3>How did your answer compare?</h3>
+                    <div class="ratebtns" role="group" aria-label="Rate your answer">
+                      <button type="button" class="ratebtn" data-rate="got">🎯 Nailed it</button>
+                      <button type="button" class="ratebtn" data-rate="partly">🟡 Mostly there</button>
+                      <button type="button" class="ratebtn" data-rate="review">🔁 Review again</button>
+                    </div>
+                    <p class="cheer" id="cheer" role="status" aria-live="polite"></p>
+                  </div>
+                </article>
+              </>
+            )}
 
-    <!-- 4. Check yourself -->
-    <section class="step" aria-labelledby="s4">
-      <h2 id="s4"><span class="stepnum">4</span> Check yourself</h2>
-      <p class="lead">A complete answer usually covers these. Tick the ones yours does.</p>
-      <ul class="checks">
-        {q.points.map((p: string, i: number) => (
-          <li>
-            <label><input type="checkbox" data-check={i} /> <span>{p}</span></label>
-          </li>
-        ))}
-      </ul>
-    </section>
-
-    <!-- 5. Compare -->
-    <section class="step" aria-labelledby="s5">
-      <h2 id="s5"><span class="stepnum">5</span> Compare with the backup answer</h2>
-      <div id="gate">
-        <button type="button" class="btn primary" id="reveal">Show the backup answer</button>
-        <p class="nudge" id="nudge" hidden>
-          Try writing at least a sentence or two first. You'll remember it much better.
-          <button type="button" class="linklike" id="reveal-anyway">Show it anyway</button>
-        </p>
-      </div>
-      <article class="backup" id="backup" hidden>
-        <div class="backup-body" set:html={q.answer.map((p: string) => (p.startsWith('<ul') || p.startsWith('<table') ? (p.startsWith('<table') ? `<div class="table-scroll">${p}</div>` : p) : `<p>${p}</p>`)).join('')} />
-        {q.sources.length > 0 && (
-          <div class="sources">
-            <h3>Sources</h3>
-            <ul>
-              {q.sources.map((s: { label: string; url: string }) => (
-                <li><a href={s.url} target="_blank" rel="noopener">{s.label}</a></li>
-              ))}
-            </ul>
+            {s.next && (
+              <button type="button" class="nextstep" data-next={s.n + 1}>Next: {s.next} ↓</button>
+            )}
           </div>
-        )}
-        <div class="rate">
-          <h3>How did your answer compare?</h3>
-          <div class="ratebtns" role="group" aria-label="Rate your answer">
-            <button type="button" class="ratebtn" data-rate="got">✅ Nailed it</button>
-            <button type="button" class="ratebtn" data-rate="partly">🟡 Mostly there</button>
-            <button type="button" class="ratebtn" data-rate="review">🔁 Review again</button>
-          </div>
-          <p class="sub">"Review again" puts this question on your review list on the home page.</p>
-          <p class="cheer" id="cheer" role="status" aria-live="polite"></p>
-        </div>
-      </article>
-    </section>
+        </details>
+      ))}
+    </div>
 
     <nav class="qnav bottom" aria-label="Question navigation">
       {prev ? <a class="btn" href={`${base}/q/${prev.id}/`}>← Previous</a> : <span />}
       <a class="btn ghost" href={`${base}/`}>All questions</a>
       {next ? <a class="btn primary" href={`${base}/q/${next.id}/`}>Next question →</a> : <a class="btn primary" href={`${base}/`}>Finish</a>}
     </nav>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
   </main>
 </Base>
 
@@ -174,7 +217,7 @@ const tools = [
     gap: 8px;
   }
   .qnav.bottom {
-    margin-top: 40px;
+    margin-top: 32px;
     flex-wrap: wrap;
   }
   .qcount {
@@ -182,7 +225,7 @@ const tools = [
     font-size: 0.9rem;
   }
   .qhead {
-    margin: 24px 0 8px;
+    margin: 22px 0 22px;
   }
   .qmeta {
     display: flex;
@@ -190,6 +233,15 @@ const tools = [
     justify-content: space-between;
     gap: 12px;
     flex-wrap: wrap;
+  }
+  .unitchip {
+    font: 700 0.75rem/1 var(--font-body);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #fff;
+    background: var(--unit);
+    padding: 7px 11px;
+    border-radius: 999px;
   }
   .save {
     font-size: 0.82rem;
@@ -203,38 +255,187 @@ const tools = [
   }
   .qtext {
     font: 700 clamp(1.5rem, 1.1rem + 1.8vw, 2.1rem) / 1.25 var(--font-display);
-    margin: 14px 0 0;
+    margin: 14px 0 14px;
     letter-spacing: -0.01em;
   }
-  .step {
-    margin-top: 36px;
-    padding-top: 28px;
-    border-top: 1px solid var(--line);
+  .starbar {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .starbar li {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--muted);
+    padding: 5px 11px 5px 8px;
+    border: 1px dashed var(--line);
+    border-radius: 999px;
+  }
+  .star {
+    font-size: 1.05rem;
+    line-height: 1;
+    color: var(--line);
+    transition: color 0.2s, transform 0.3s;
+  }
+  .starbar li.on {
+    color: var(--ink);
+    border-style: solid;
+    border-color: var(--gold);
+    background: var(--gold-soft);
+  }
+  .starbar li.on .star {
+    color: var(--gold);
+  }
+  .starbar li.pop .star {
+    animation: starpop 0.6s ease-out;
+  }
+  @keyframes starpop {
+    0% {
+      transform: scale(0.4) rotate(-40deg);
+    }
+    60% {
+      transform: scale(1.6) rotate(10deg);
+    }
+  }
+
+  /* ── step cards ── */
+  .steps {
     display: grid;
-    gap: 14px;
+    gap: 10px;
   }
-  .step > *,
-  .backup > * {
-    min-width: 0;
+  .step {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    transition: border-color 0.2s, box-shadow 0.2s;
   }
-  .step h2 {
+  .step[open] {
+    border-color: color-mix(in srgb, var(--unit) 55%, var(--line));
+    box-shadow: var(--shadow);
+  }
+  .step > summary {
+    list-style: none;
     display: flex;
     align-items: center;
     gap: 12px;
-    font: 700 1.3rem/1.2 var(--font-display);
-    margin: 0;
+    padding: 14px 16px;
+    cursor: pointer;
+    border-radius: 14px;
   }
-  .stepnum {
+  .step > summary::-webkit-details-marker {
+    display: none;
+  }
+  .step > summary:hover .stitle {
+    color: var(--accent);
+  }
+  .badge {
     display: inline-grid;
     place-items: center;
-    width: 30px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
-    background: var(--ink);
-    color: var(--paper);
+    background: var(--paper);
+    border: 2px solid var(--line);
+    color: var(--ink-soft);
     font: 600 0.95rem/1 var(--font-mono);
     flex: none;
+    transition: background 0.25s, border-color 0.25s, transform 0.25s;
   }
+  .step[open] .badge {
+    border-color: var(--unit);
+    color: var(--unit);
+  }
+  .badge .tick {
+    display: none;
+  }
+  .step.done .badge {
+    background: var(--ok);
+    border-color: var(--ok);
+    color: #fff;
+  }
+  .step.done .badge .num {
+    display: none;
+  }
+  .step.done .badge .tick {
+    display: inline;
+    font-family: var(--font-body);
+    font-weight: 700;
+  }
+  .step.justdone .badge {
+    animation: stamp 0.45s ease-out;
+  }
+  @keyframes stamp {
+    0% {
+      transform: scale(1.5);
+    }
+    70% {
+      transform: scale(0.92);
+    }
+  }
+  .stitle {
+    font: 700 1.12rem/1.25 var(--font-display);
+    min-width: 0;
+    flex: 1;
+  }
+  .sstatus {
+    font-size: 0.82rem;
+    color: var(--muted);
+    white-space: nowrap;
+    text-align: right;
+  }
+  .step.done .sstatus {
+    color: var(--ok);
+  }
+  .chev {
+    width: 9px;
+    height: 9px;
+    border-right: 2px solid var(--muted);
+    border-bottom: 2px solid var(--muted);
+    transform: rotate(45deg);
+    margin: -4px 4px 0 2px;
+    transition: transform 0.2s;
+    flex: none;
+  }
+  .step[open] .chev {
+    transform: rotate(-135deg);
+    margin-top: 4px;
+  }
+  .sbody {
+    padding: 2px 18px 18px 60px;
+    display: grid;
+    gap: 14px;
+  }
+  .sbody > * {
+    min-width: 0;
+  }
+  @media (max-width: 560px) {
+    .sbody {
+      padding: 2px 14px 16px;
+    }
+    .sstatus {
+      display: none;
+    }
+  }
+  .nextstep {
+    justify-self: start;
+    font: 600 0.9rem/1 var(--font-body);
+    color: var(--accent);
+    background: var(--accent-soft);
+    border: 0;
+    border-radius: 999px;
+    padding: 9px 14px;
+    cursor: pointer;
+  }
+  .nextstep:hover {
+    filter: brightness(0.97);
+  }
+
   .lead,
   .sub,
   .tip {
@@ -276,8 +477,11 @@ const tools = [
   @keyframes pop {
     from {
       transform: translateY(4px);
-      opacity: 0.4;
     }
+  }
+  .hintcount {
+    font-weight: 400;
+    color: var(--muted);
   }
   .terms h3,
   .sources h3,
@@ -298,12 +502,12 @@ const tools = [
   }
   .termlist details {
     border: 1px solid var(--line);
-    background: var(--card);
+    background: var(--paper);
     border-radius: 8px;
     padding: 7px 12px;
   }
   .termlist details[open] {
-    border-color: var(--accent);
+    border-color: var(--unit);
   }
   .termlist summary {
     cursor: pointer;
@@ -332,7 +536,7 @@ const tools = [
   }
   .tools {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     gap: 8px;
   }
   .tool {
@@ -340,27 +544,44 @@ const tools = [
     gap: 2px;
     padding: 10px 12px;
     border: 1px solid var(--line);
-    border-radius: 8px;
-    background: var(--card);
+    border-radius: 10px;
+    background: var(--paper);
     text-decoration: none;
     color: var(--ink);
+    transition: transform 0.15s, border-color 0.15s;
   }
   .tool:hover {
     border-color: var(--accent);
+    transform: translateY(-2px);
   }
   .tool span {
     font-size: 0.8rem;
     color: var(--muted);
   }
-  .hintcount {
-    font-weight: 400;
-    color: var(--muted);
+  .meter {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    overflow: hidden;
+    margin-top: -6px;
+  }
+  .meter span {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: var(--gold);
+    transition: width 0.25s, background 0.25s;
+  }
+  .meter.full span {
+    background: var(--ok);
   }
   .wordcount {
+    display: flex;
+    justify-content: space-between;
     font-size: 0.8rem;
     color: var(--muted);
     margin-top: -8px;
-    text-align: right;
   }
   .opt {
     font-weight: 400;
@@ -404,13 +625,11 @@ const tools = [
     cursor: pointer;
   }
   .backup {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    padding: 20px 22px;
     display: grid;
     gap: 16px;
+  }
+  .backup > * {
+    min-width: 0;
   }
   .backup-body :global(p) {
     margin: 0 0 12px;
@@ -436,11 +655,15 @@ const tools = [
   .ratebtn {
     font: 600 0.92rem/1 var(--font-body);
     padding: 10px 14px;
-    border-radius: 8px;
+    border-radius: 999px;
     border: 1px solid var(--line);
     background: var(--paper);
     color: var(--ink);
     cursor: pointer;
+    transition: transform 0.15s;
+  }
+  .ratebtn:hover {
+    transform: translateY(-1px);
   }
   .ratebtn[aria-pressed='true'] {
     border-color: var(--ok);
@@ -452,17 +675,27 @@ const tools = [
     color: var(--ok);
     min-height: 1.5em;
   }
-  .cheer.burst {
-    animation: cheer 0.6s ease-out;
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    transform: translate(-50%, 140%);
+    background: var(--ink);
+    color: var(--paper);
+    font-weight: 600;
+    font-size: 0.95rem;
+    padding: 10px 16px;
+    border-radius: 999px;
+    box-shadow: 0 6px 24px rgb(0 0 0 / 0.25);
+    transition: transform 0.35s cubic-bezier(0.2, 1.4, 0.4, 1);
+    z-index: 20;
+    white-space: nowrap;
+    max-width: calc(100vw - 32px);
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  @keyframes cheer {
-    0% {
-      transform: scale(0.9);
-      opacity: 0;
-    }
-    60% {
-      transform: scale(1.05);
-    }
+  .toast.show {
+    transform: translate(-50%, 0);
   }
   .visually-hidden {
     position: absolute;
@@ -471,19 +704,19 @@ const tools = [
     overflow: hidden;
     clip: rect(0 0 0 0);
   }
-  @media (max-width: 520px) {
-    .backup {
-      padding: 16px;
-    }
-  }
 </style>
 
 <script>
-  import { createNoteController, formatTime, getNote, statusOf, type SyncState, type Rating } from '../../scripts/store';
+  import { createNoteController, formatTime, getNote, type SyncState, type Rating } from '../../scripts/store';
+  import { starsFor, rankFor } from '../../scripts/game';
+  import { confetti } from '../../scripts/confetti';
 
   const page = document.querySelector<HTMLElement>('.qpage')!;
   const id = Number(page.dataset.id);
   const question = page.dataset.question ?? '';
+  const total = Number(page.dataset.total);
+  const pointCount = Number(page.dataset.points);
+  const allPoints: number[] = JSON.parse(page.dataset.allPoints ?? '[]');
 
   const $ = <T extends HTMLElement>(sel: string) => document.querySelector<T>(sel)!;
   const saveEl = $('#save-state');
@@ -497,7 +730,9 @@ const tools = [
   const gate = $('#gate');
   const nudge = $('#nudge');
   const rateBtns = [...document.querySelectorAll<HTMLButtonElement>('[data-rate]')];
-  const wordcount = $('#wordcount');
+  const steps = [...document.querySelectorAll<HTMLDetailsElement>('details.step')];
+  const starEls = [...document.querySelectorAll<HTMLElement>('[data-star]')];
+  const toastEl = $('#toast');
 
   function showSync(st: SyncState) {
     saveEl.dataset.kind = st.kind;
@@ -509,7 +744,48 @@ const tools = [
 
   const ctl = createNoteController(id, question, showSync);
 
-  function render() {
+  let toastTimer: number | undefined;
+  function toast(msg: string) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    window.clearTimeout(toastTimer);
+    toastTimer = window.setTimeout(() => toastEl.classList.remove('show'), 2600);
+  }
+
+  const words = (s: string) => s.trim().split(/\s+/).filter(Boolean).length;
+
+  function stepDone(n: number) {
+    const note = ctl.get();
+    switch (n) {
+      case 1: return note.hintsShown > 0 || note.steps.includes(1);
+      case 2: return note.researched || note.notes.trim().length > 0 || note.steps.includes(2);
+      case 3: return words(note.answer) >= 20;
+      case 4: return note.checks.length >= Math.ceil(pointCount * 0.6);
+      case 5: return note.rating !== '';
+    }
+    return false;
+  }
+
+  function stepStatus(n: number) {
+    const note = ctl.get();
+    switch (n) {
+      case 1: return note.hintsShown ? `${note.hintsShown} hint${note.hintsShown === 1 ? '' : 's'} used` : 'Hints & key terms';
+      case 2: return stepDone(2) ? 'Researched' : 'Search tools';
+      case 3: return `${words(note.answer)} words`;
+      case 4: return `${note.checks.length} / ${pointCount} ticked`;
+      case 5:
+        if (note.rating === 'got') return 'Nailed it 🎯';
+        if (note.rating === 'partly') return 'Mostly there';
+        if (note.rating === 'review') return 'Review again';
+        return words(note.answer) < 8 && !note.revealed ? '🔒 Write first' : 'Ready';
+    }
+    return '';
+  }
+
+  let lastDone = new Set<number>();
+  let lastStars = -1;
+
+  function render(first = false) {
     const n = ctl.get();
     if (document.activeElement !== answerEl) answerEl.value = n.answer;
     if (document.activeElement !== notesEl) notesEl.value = n.notes;
@@ -520,19 +796,74 @@ const tools = [
     backup.hidden = !n.revealed;
     gate.hidden = n.revealed;
     rateBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.rate === n.rating)));
-    countWords();
+
+    // word meter
+    const w = words(answerEl.value);
+    $('#wordcount').textContent = `${w} word${w === 1 ? '' : 's'}`;
+    $('#wordgoal').textContent = w >= 20 ? 'Star earned ★' : `${20 - w} more for a star ★`;
+    $('#meter-fill').style.width = `${Math.min(100, (w / 20) * 100)}%`;
+    $('.meter').classList.toggle('full', w >= 20);
+
+    // step cards
+    const done = new Set<number>();
+    steps.forEach((s) => {
+      const k = Number(s.dataset.step);
+      const isDone = stepDone(k);
+      if (isDone) done.add(k);
+      s.classList.toggle('done', isDone);
+      if (!first && isDone && !lastDone.has(k)) {
+        s.classList.remove('justdone');
+        void s.offsetWidth;
+        s.classList.add('justdone');
+      }
+      $(`[data-status-for="${k}"]`).textContent = stepStatus(k);
+    });
+    lastDone = done;
+
+    // stars
+    const st = starsFor(n, pointCount);
+    const lit = [st.wrote, st.checked, st.nailed];
+    starEls.forEach((el, i) => {
+      const was = el.classList.contains('on');
+      el.classList.toggle('on', lit[i]);
+      if (!first && lit[i] && !was) {
+        el.classList.remove('pop');
+        void el.offsetWidth;
+        el.classList.add('pop');
+      }
+    });
+    if (!first && lastStars >= 0 && st.count > lastStars) {
+      const totalStars = allStars();
+      const r = rankFor(totalStars);
+      const before = rankFor(totalStars - (st.count - lastStars));
+      if (r.level > before.level) {
+        toast(`${r.icon} Promoted to ${r.title}!`);
+        confetti(window.innerWidth / 2, window.innerHeight * 0.4, 110);
+      } else toast(`★ Star earned · ${totalStars} total`);
+    }
+    lastStars = st.count;
   }
 
-  function countWords() {
-    const w = answerEl.value.trim() ? answerEl.value.trim().split(/\s+/).length : 0;
-    wordcount.textContent = `${w} word${w === 1 ? '' : 's'}`;
+  function allStars() {
+    let t = 0;
+    for (let i = 1; i <= total; i++) t += starsFor(i === id ? ctl.get() : getNote(i), allPoints[i - 1] ?? 0).count;
+    return t;
+  }
+
+  // open the first unfinished step; finished ones start closed
+  function openFirstUnfinished() {
+    const firstOpen = steps.find((s) => !stepDone(Number(s.dataset.step))) ?? steps[steps.length - 1];
+    steps.forEach((s) => (s.open = s === firstOpen));
   }
 
   answerEl.addEventListener('input', () => {
     ctl.update({ answer: answerEl.value });
-    countWords();
+    render();
   });
-  notesEl.addEventListener('input', () => ctl.update({ notes: notesEl.value }));
+  notesEl.addEventListener('input', () => {
+    ctl.update({ notes: notesEl.value });
+    render();
+  });
 
   moreHint.addEventListener('click', () => {
     ctl.update({ hintsShown: Math.min(hints.length, ctl.get().hintsShown + 1) });
@@ -545,16 +876,30 @@ const tools = [
       const i = Number(c.dataset.check);
       c.checked ? set.add(i) : set.delete(i);
       ctl.update({ checks: [...set].sort((a, b) => a - b) });
+      render();
+    }),
+  );
+
+  // "Next" buttons close this card and open the next one
+  document.querySelectorAll<HTMLButtonElement>('.nextstep').forEach((b) =>
+    b.addEventListener('click', () => {
+      const cur = Number(b.closest<HTMLElement>('details.step')!.dataset.step);
+      const n = Number(b.dataset.next);
+      if (!ctl.get().steps.includes(cur)) ctl.update({ steps: [...ctl.get().steps, cur] });
+      steps.forEach((s) => (s.open = Number(s.dataset.step) === n));
+      render();
+      const target = steps[n - 1];
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (n === 3) window.setTimeout(() => answerEl.focus({ preventScroll: true }), 350);
     }),
   );
 
   function reveal() {
     ctl.update({ revealed: true });
     render();
-    backup.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
   $('#reveal').addEventListener('click', () => {
-    if (ctl.get().answer.trim().split(/\s+/).filter(Boolean).length < 8) nudge.hidden = false;
+    if (words(ctl.get().answer) < 8) nudge.hidden = false;
     else reveal();
   });
   $('#reveal-anyway').addEventListener('click', reveal);
@@ -564,24 +909,20 @@ const tools = [
       const r = b.dataset.rate as Rating;
       const next = ctl.get().rating === r ? '' : r;
       ctl.update({ rating: next });
-      render();
       const cheer = $('#cheer');
-      cheer.classList.remove('burst');
       if (next === 'got') {
-        const total = Number(page.dataset.total);
-        let nailed = 0;
-        for (let i = 1; i <= total; i++) if (statusOf(getNote(i)) === 'mastered') nailed++;
+        const rect = b.getBoundingClientRect();
+        confetti(rect.left + rect.width / 2, rect.top, 80);
         const lines = ['Nice work!', 'You got it!', 'Boom. Nailed it.', 'That one is yours now.', 'Look at you go!'];
-        cheer.textContent = `🎉 ${lines[nailed % lines.length]} ${nailed} of ${total} nailed.`;
-        void cheer.offsetWidth;
-        cheer.classList.add('burst');
+        cheer.textContent = `🎉 ${lines[Math.floor(Math.random() * lines.length)]}`;
       } else if (next === 'partly') cheer.textContent = 'Close! Add what was missing to your answer, then come back to it.';
       else if (next === 'review') cheer.textContent = 'Added to your review list. Coming back to it is how it sticks.';
       else cheer.textContent = '';
+      render();
     }),
   );
 
-  // research tools follow whatever is in the search box
+  // research tools follow whatever is in the search box; using one counts as research
   const box = $<HTMLInputElement>('#search-box');
   const toolLinks = [...document.querySelectorAll<HTMLAnchorElement>('.tool')];
   const retarget = () => {
@@ -589,6 +930,14 @@ const tools = [
     toolLinks.forEach((a) => (a.href = (a.dataset.url ?? '').replace('%s', q)));
   };
   box.addEventListener('input', retarget);
+  toolLinks.forEach((a) =>
+    a.addEventListener('click', () => {
+      if (!ctl.get().researched) {
+        ctl.update({ researched: true });
+        render();
+      }
+    }),
+  );
   document.querySelectorAll<HTMLButtonElement>('.suggestion').forEach((b) =>
     b.addEventListener('click', () => {
       box.value = b.dataset.s ?? '';
@@ -614,6 +963,12 @@ const tools = [
     localStorage.setItem('civics:last', String(id));
   } catch {}
 
-  render();
-  ctl.pull().then((changed) => changed && render());
+  render(true);
+  openFirstUnfinished();
+  ctl.pull().then((changed) => {
+    if (changed) {
+      render(true);
+      openFirstUnfinished();
+    }
+  });
 </script>

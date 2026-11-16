@@ -20,12 +20,12 @@
 */
 
 export const TOPICS = {
-  rights:  { name: "Voting rights history", short: "Rights" },
-  turnout: { name: "Voting & participation", short: "Turnout" },
-  polls:   { name: "Public opinion & polling", short: "Polling" },
-  social:  { name: "How we form opinions", short: "Opinions" },
-  culture: { name: "Political culture", short: "Culture" },
-  ideology:{ name: "Ideology & parties", short: "Ideology" }
+  rights:  { name: "Voting rights history", short: "Rights", color: "#c8453b", sticker: "Rights Defender" },
+  turnout: { name: "Voting & participation", short: "Turnout", color: "#2c6fd1", sticker: "Turnout Pro" },
+  polls:   { name: "Public opinion & polling", short: "Polling", color: "#1f8a8a", sticker: "Poll Expert" },
+  social:  { name: "How we form opinions", short: "Opinions", color: "#7a4fb5", sticker: "Opinion Detective" },
+  culture: { name: "Political culture", short: "Culture", color: "#c96f1e", sticker: "Culture Scholar" },
+  ideology:{ name: "Ideology & parties", short: "Ideology", color: "#2f8a55", sticker: "Party Insider" }
 };
 
 export const SRC = {

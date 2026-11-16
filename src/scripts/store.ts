@@ -17,6 +17,8 @@ export interface Note {
   checks: number[];
   revealed: boolean;
   rating: Rating;
+  researched: boolean; // opened a research tool or wrote research notes
+  steps: number[]; // step cards she moved past with "Next"
   updated: string; // ISO time of the last edit
   sha?: string; // GitHub blob sha of the last synced copy
   dirty?: boolean; // edited since the last successful sync
@@ -65,7 +67,7 @@ function write(key: string, value: unknown) {
 }
 
 export function emptyNote(): Note {
-  return { answer: '', notes: '', hintsShown: 0, checks: [], revealed: false, rating: '', updated: '' };
+  return { answer: '', notes: '', hintsShown: 0, checks: [], revealed: false, rating: '', researched: false, steps: [], updated: '' };
 }
 
 export function getNote(id: number): Note {
@@ -118,6 +120,8 @@ export function toMarkdown(id: number, question: string, n: Note): string {
     `hints_shown: ${n.hintsShown}`,
     `checks: ${JSON.stringify(n.checks)}`,
     `revealed: ${n.revealed}`,
+    `researched: ${n.researched}`,
+    `steps: ${JSON.stringify(n.steps)}`,
     `updated: ${n.updated}`,
     '---',
   ].join('\n');
@@ -137,6 +141,8 @@ export function fromMarkdown(md: string): Partial<Note> {
         if (k === 'hints_shown') out.hintsShown = Number(v) || 0;
         if (k === 'checks') out.checks = JSON.parse(v);
         if (k === 'revealed') out.revealed = v === 'true';
+        if (k === 'researched') out.researched = v === 'true';
+        if (k === 'steps') out.steps = JSON.parse(v);
         if (k === 'updated') out.updated = v;
       } catch {
         /* ignore a hand-edited line we can't read */
@@ -275,6 +281,7 @@ export function createNoteController(id: number, question: string, onSync: Liste
 
     update(patch: Partial<Note>) {
       note = { ...note, ...patch, updated: new Date().toISOString(), dirty: true };
+      markStudyDay();
       putNote(id, note);
       if (syncEnabled()) {
         emit({ kind: 'saving' });
@@ -394,4 +401,35 @@ export function formatTime(iso: string) {
   return sameDay
     ? d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
     : d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
+/* ───────── study days, for the streak ───────── */
+
+const DAYS_KEY = 'civics:days';
+
+function localDay(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+export function markStudyDay() {
+  const days = new Set(read<string[]>(DAYS_KEY) ?? []);
+  days.add(localDay());
+  write(DAYS_KEY, [...days].sort().slice(-400));
+}
+
+/** Days in a row with some studying, ending today (or yesterday, so the streak survives until tonight). */
+export function streak(extraDays: string[] = []): number {
+  const days = new Set([...(read<string[]>(DAYS_KEY) ?? []), ...extraDays]);
+  const d = new Date();
+  if (!days.has(localDay(d))) d.setDate(d.getDate() - 1);
+  let n = 0;
+  while (days.has(localDay(d))) {
+    n++;
+    d.setDate(d.getDate() - 1);
+  }
+  return n;
+}
+
+export function dayOf(iso: string) {
+  return iso ? localDay(new Date(iso)) : '';
 }
