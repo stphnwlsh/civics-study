@@ -1,0 +1,120 @@
+---
+import Base from '../layouts/Base.astro';
+import { QUESTIONS } from '../data/questions.js';
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+
+// Merge terms that appear in more than one question, keeping the first definition.
+const map = new Map<string, { t: string; d: string; qs: number[] }>();
+for (const q of QUESTIONS) {
+  for (const term of q.terms) {
+    const key = term.t.toLowerCase();
+    const hit = map.get(key);
+    if (hit) hit.qs.push(q.id);
+    else map.set(key, { t: term.t, d: term.d, qs: [q.id] });
+  }
+}
+const terms = [...map.values()].sort((a, b) => a.t.localeCompare(b.t, 'en', { numeric: true }));
+---
+
+<Base title="Key terms" current="glossary">
+  <main class="wrap glossary">
+    <h1>Key terms</h1>
+    <p class="lede">Every key term from all {QUESTIONS.length} questions, A to Z. Search to find one fast.</p>
+    <label class="visually-hidden" for="filter">Search key terms</label>
+    <input type="search" id="filter" placeholder="Search terms and definitions…" autocomplete="off" />
+    <p class="count mono" id="count" role="status" aria-live="polite">{terms.length} terms</p>
+    <dl class="terms">
+      {terms.map((t) => (
+        <div class="term" data-text={`${t.t} ${t.d}`.toLowerCase()}>
+          <dt>{t.t}</dt>
+          <dd>
+            {t.d}
+            <span class="used">
+              Used in{' '}
+              {t.qs.map((id, i) => (
+                <>
+                  {i > 0 && ', '}
+                  <a href={`${base}/q/${id}/`}>Q{id}</a>
+                </>
+              ))}
+            </span>
+          </dd>
+        </div>
+      ))}
+    </dl>
+  </main>
+</Base>
+
+<style>
+  .glossary {
+    padding-block: 28px 0;
+    display: grid;
+    gap: 14px;
+  }
+  h1 {
+    font: 700 2rem/1.1 var(--font-display);
+    margin: 0;
+  }
+  .lede {
+    margin: 0;
+    color: var(--ink-soft);
+  }
+  .count {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .terms {
+    margin: 0;
+    border-top: 1px solid var(--line);
+  }
+  .term {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line);
+    display: grid;
+    grid-template-columns: minmax(0, 14rem) minmax(0, 1fr);
+    gap: 4px 20px;
+  }
+  dt {
+    font-weight: 700;
+  }
+  dd {
+    margin: 0;
+    color: var(--ink-soft);
+  }
+  .used {
+    display: block;
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  @media (max-width: 600px) {
+    .term {
+      grid-template-columns: 1fr;
+    }
+  }
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+</style>
+
+<script>
+  const input = document.getElementById('filter') as HTMLInputElement;
+  const rows = [...document.querySelectorAll<HTMLElement>('.term')];
+  const count = document.getElementById('count')!;
+  input.addEventListener('input', () => {
+    const q = input.value.trim().toLowerCase();
+    let shown = 0;
+    rows.forEach((r) => {
+      const hit = !q || (r.dataset.text ?? '').includes(q);
+      r.hidden = !hit;
+      if (hit) shown++;
+    });
+    count.textContent = `${shown} term${shown === 1 ? '' : 's'}`;
+  });
+</script>

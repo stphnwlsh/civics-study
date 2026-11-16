@@ -1,0 +1,619 @@
+---
+import Base from '../../layouts/Base.astro';
+import { QUESTIONS, TOPICS } from '../../data/questions.js';
+
+export function getStaticPaths() {
+  return QUESTIONS.map((q) => ({ params: { id: String(q.id) }, props: { q } }));
+}
+
+const { q } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const idx = QUESTIONS.findIndex((x) => x.id === q.id);
+const prev = QUESTIONS[idx - 1];
+const next = QUESTIONS[idx + 1];
+const topic = TOPICS[q.topic as keyof typeof TOPICS];
+const total = QUESTIONS.length;
+
+// Research sites. %s is replaced with the search words.
+const tools = [
+  { name: 'Google', url: 'https://www.google.com/search?q=%s', note: 'Everything' },
+  { name: 'Britannica', url: 'https://www.britannica.com/search?query=%s', note: 'Encyclopedia' },
+  { name: 'Wikipedia', url: 'https://en.wikipedia.org/w/index.php?search=%s', note: 'Encyclopedia' },
+  { name: 'Khan Academy', url: 'https://www.khanacademy.org/search?page_search_query=%s', note: 'AP Gov lessons' },
+  { name: 'National Archives', url: 'https://www.archives.gov/search?query=%s', note: 'Founding documents' },
+  { name: 'Library of Congress', url: 'https://www.loc.gov/search/?q=%s', note: 'History' },
+  { name: 'Oyez', url: 'https://www.google.com/search?q=site%3Aoyez.org+%s', note: 'Supreme Court cases' },
+  { name: 'Pew Research', url: 'https://www.pewresearch.org/search/%s', note: 'Polls & data' },
+  { name: 'Census Bureau', url: 'https://www.census.gov/search-results.html?q=%s', note: 'Voting statistics' },
+];
+---
+
+<Base title={`Question ${q.id}`} current="question" description={q.q}>
+  <main class="wrap qpage" data-id={q.id} data-question={q.q} data-total={total}>
+    <nav class="qnav" aria-label="Question navigation">
+      {prev ? <a class="btn small ghost" href={`${base}/q/${prev.id}/`} data-key="prev">← {prev.id}</a> : <span />}
+      <span class="qcount mono">{q.id} / {total}</span>
+      {next ? <a class="btn small ghost" href={`${base}/q/${next.id}/`} data-key="next">{next.id} →</a> : <a class="btn small ghost" href={`${base}/`}>Done ✓</a>}
+    </nav>
+
+    <header class="qhead">
+      <div class="qmeta">
+        <span class="chip">{topic.name}</span>
+        <span class="save" id="save-state" role="status" aria-live="polite"></span>
+      </div>
+      <h1 class="qtext">{q.q}</h1>
+    </header>
+
+    <!-- 1. Think it through -->
+    <section class="step" aria-labelledby="s1">
+      <h2 id="s1"><span class="stepnum">1</span> Think it through</h2>
+      <p class="lead">Read the question twice. What is it actually asking you to do: define, list, compare, or explain?</p>
+
+      <div class="hints" id="hints">
+        <ol class="hintlist">
+          {q.hints.map((h: string, i: number) => (
+            <li class="hint" data-hint={i} hidden>
+              <span class="hint-label">Hint {i + 1}</span>
+              <span set:html={h} />
+            </li>
+          ))}
+        </ol>
+        <button type="button" class="btn" id="more-hint">💡 Show a hint <span class="hintcount" id="hint-count">(0 of {q.hints.length})</span></button>
+      </div>
+
+      <div class="terms">
+        <h3>Key terms to try to use</h3>
+        <p class="sub">Tap a term to see what it means. Using these words in your answer makes it stronger.</p>
+        <ul class="termlist">
+          {q.terms.map((t: { t: string; d: string }) => (
+            <li>
+              <details>
+                <summary>{t.t}</summary>
+                <p>{t.d}</p>
+              </details>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+
+    <!-- 2. Look it up -->
+    <section class="step" aria-labelledby="s2">
+      <h2 id="s2"><span class="stepnum">2</span> Look it up</h2>
+      <p class="lead">Type what you want to find, or tap a suggestion, then pick where to search. Results open in a new tab.</p>
+      <label class="visually-hidden" for="search-box">Search words</label>
+      <input type="search" id="search-box" value={q.search[0]} autocomplete="off" />
+      <div class="suggest">
+        {q.search.map((s: string) => <button type="button" class="suggestion" data-s={s}>{s}</button>)}
+      </div>
+      <div class="tools">
+        {tools.map((t) => (
+          <a class="tool" data-url={t.url} href={t.url.replace('%s', encodeURIComponent(q.search[0]))} target="_blank" rel="noopener">
+            <strong>{t.name}</strong>
+            <span>{t.note}</span>
+          </a>
+        ))}
+      </div>
+      <p class="tip">Tip: when you find a good fact, paste it into your research notes below with where it came from.</p>
+    </section>
+
+    <!-- 3. Write your answer -->
+    <section class="step" aria-labelledby="s3">
+      <h2 id="s3"><span class="stepnum">3</span> Write your answer</h2>
+      <label for="answer">My answer</label>
+      <textarea id="answer" rows="8" placeholder="Answer in your own words. Aim for a few complete sentences with an example."></textarea>
+      <div class="wordcount mono" id="wordcount">0 words</div>
+      <label for="notes">Research notes <span class="opt">(facts, quotes, links)</span></label>
+      <textarea id="notes" rows="5" placeholder="Paste facts and where you found them, e.g. 'Census 2024: 65% voted — census.gov'"></textarea>
+    </section>
+
+    <!-- 4. Check yourself -->
+    <section class="step" aria-labelledby="s4">
+      <h2 id="s4"><span class="stepnum">4</span> Check yourself</h2>
+      <p class="lead">A complete answer usually covers these. Tick the ones yours does.</p>
+      <ul class="checks">
+        {q.points.map((p: string, i: number) => (
+          <li>
+            <label><input type="checkbox" data-check={i} /> <span>{p}</span></label>
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <!-- 5. Compare -->
+    <section class="step" aria-labelledby="s5">
+      <h2 id="s5"><span class="stepnum">5</span> Compare with the backup answer</h2>
+      <div id="gate">
+        <button type="button" class="btn primary" id="reveal">Show the backup answer</button>
+        <p class="nudge" id="nudge" hidden>
+          Try writing at least a sentence or two first. You'll remember it much better.
+          <button type="button" class="linklike" id="reveal-anyway">Show it anyway</button>
+        </p>
+      </div>
+      <article class="backup" id="backup" hidden>
+        <div class="backup-body" set:html={q.answer.map((p: string) => (p.startsWith('<ul') || p.startsWith('<table') ? (p.startsWith('<table') ? `<div class="table-scroll">${p}</div>` : p) : `<p>${p}</p>`)).join('')} />
+        {q.sources.length > 0 && (
+          <div class="sources">
+            <h3>Sources</h3>
+            <ul>
+              {q.sources.map((s: { label: string; url: string }) => (
+                <li><a href={s.url} target="_blank" rel="noopener">{s.label}</a></li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <div class="rate">
+          <h3>How did your answer compare?</h3>
+          <div class="ratebtns" role="group" aria-label="Rate your answer">
+            <button type="button" class="ratebtn" data-rate="got">✅ Nailed it</button>
+            <button type="button" class="ratebtn" data-rate="partly">🟡 Mostly there</button>
+            <button type="button" class="ratebtn" data-rate="review">🔁 Review again</button>
+          </div>
+          <p class="sub">"Review again" puts this question on your review list on the home page.</p>
+          <p class="cheer" id="cheer" role="status" aria-live="polite"></p>
+        </div>
+      </article>
+    </section>
+
+    <nav class="qnav bottom" aria-label="Question navigation">
+      {prev ? <a class="btn" href={`${base}/q/${prev.id}/`}>← Previous</a> : <span />}
+      <a class="btn ghost" href={`${base}/`}>All questions</a>
+      {next ? <a class="btn primary" href={`${base}/q/${next.id}/`}>Next question →</a> : <a class="btn primary" href={`${base}/`}>Finish</a>}
+    </nav>
+  </main>
+</Base>
+
+<style>
+  .qpage {
+    padding-block: 20px 0;
+  }
+  .qnav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+  .qnav.bottom {
+    margin-top: 40px;
+    flex-wrap: wrap;
+  }
+  .qcount {
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+  .qhead {
+    margin: 24px 0 8px;
+  }
+  .qmeta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .save {
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+  .save[data-kind='error'] {
+    color: var(--bad);
+  }
+  .save[data-kind='synced'] {
+    color: var(--ok);
+  }
+  .qtext {
+    font: 700 clamp(1.5rem, 1.1rem + 1.8vw, 2.1rem) / 1.25 var(--font-display);
+    margin: 14px 0 0;
+    letter-spacing: -0.01em;
+  }
+  .step {
+    margin-top: 36px;
+    padding-top: 28px;
+    border-top: 1px solid var(--line);
+    display: grid;
+    gap: 14px;
+  }
+  .step > *,
+  .backup > * {
+    min-width: 0;
+  }
+  .step h2 {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font: 700 1.3rem/1.2 var(--font-display);
+    margin: 0;
+  }
+  .stepnum {
+    display: inline-grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--ink);
+    color: var(--paper);
+    font: 600 0.95rem/1 var(--font-mono);
+    flex: none;
+  }
+  .lead,
+  .sub,
+  .tip {
+    margin: 0;
+    color: var(--ink-soft);
+  }
+  .sub,
+  .tip {
+    font-size: 0.92rem;
+  }
+  .hints {
+    display: grid;
+    gap: 10px;
+    justify-items: start;
+  }
+  .hintlist {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 10px;
+    width: 100%;
+  }
+  .hint {
+    background: var(--highlight);
+    color: var(--highlight-ink);
+    padding: 12px 14px;
+    border-radius: 4px 12px 12px 12px;
+    animation: pop 0.25s ease-out;
+  }
+  .hint-label {
+    display: block;
+    font: 600 0.72rem/1 var(--font-body);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+    opacity: 0.8;
+  }
+  @keyframes pop {
+    from {
+      transform: translateY(4px);
+      opacity: 0.4;
+    }
+  }
+  .terms h3,
+  .sources h3,
+  .rate h3 {
+    font: 600 1rem/1.3 var(--font-body);
+    margin: 6px 0 4px;
+  }
+  .termlist {
+    list-style: none;
+    padding: 0;
+    margin: 10px 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .termlist li {
+    max-width: 100%;
+  }
+  .termlist details {
+    border: 1px solid var(--line);
+    background: var(--card);
+    border-radius: 8px;
+    padding: 7px 12px;
+  }
+  .termlist details[open] {
+    border-color: var(--accent);
+  }
+  .termlist summary {
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+  .termlist details p {
+    margin: 6px 0 2px;
+    font-size: 0.93rem;
+    color: var(--ink-soft);
+    max-width: 40ch;
+  }
+  .suggest {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .suggestion {
+    font: 400 0.85rem/1.2 var(--font-body);
+    background: transparent;
+    color: var(--accent);
+    border: 1px dashed var(--accent);
+    border-radius: 999px;
+    padding: 5px 10px;
+    cursor: pointer;
+  }
+  .tools {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 8px;
+  }
+  .tool {
+    display: grid;
+    gap: 2px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--card);
+    text-decoration: none;
+    color: var(--ink);
+  }
+  .tool:hover {
+    border-color: var(--accent);
+  }
+  .tool span {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  .hintcount {
+    font-weight: 400;
+    color: var(--muted);
+  }
+  .wordcount {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: -8px;
+    text-align: right;
+  }
+  .opt {
+    font-weight: 400;
+    color: var(--muted);
+  }
+  .checks {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 8px;
+  }
+  .checks label {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    font-weight: 400;
+    cursor: pointer;
+  }
+  .checks input {
+    width: 20px;
+    height: 20px;
+    margin-top: 3px;
+    accent-color: var(--ok);
+    flex: none;
+  }
+  .nudge {
+    margin: 10px 0 0;
+    padding: 12px 14px;
+    background: var(--warn-soft);
+    border-radius: 8px;
+  }
+  .linklike {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    font-weight: 600;
+    color: var(--accent);
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  .backup {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 20px 22px;
+    display: grid;
+    gap: 16px;
+  }
+  .backup-body :global(p) {
+    margin: 0 0 12px;
+    max-width: 68ch;
+  }
+  .backup-body :global(ul) {
+    margin: 0 0 12px;
+    padding-left: 1.2em;
+    display: grid;
+    gap: 6px;
+  }
+  .sources ul {
+    margin: 0;
+    padding-left: 1.2em;
+    font-size: 0.92rem;
+  }
+  .ratebtns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 6px 0;
+  }
+  .ratebtn {
+    font: 600 0.92rem/1 var(--font-body);
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .ratebtn[aria-pressed='true'] {
+    border-color: var(--ok);
+    background: var(--ok-soft);
+  }
+  .cheer {
+    margin: 4px 0 0;
+    font-weight: 600;
+    color: var(--ok);
+    min-height: 1.5em;
+  }
+  .cheer.burst {
+    animation: cheer 0.6s ease-out;
+  }
+  @keyframes cheer {
+    0% {
+      transform: scale(0.9);
+      opacity: 0;
+    }
+    60% {
+      transform: scale(1.05);
+    }
+  }
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  @media (max-width: 520px) {
+    .backup {
+      padding: 16px;
+    }
+  }
+</style>
+
+<script>
+  import { createNoteController, formatTime, getNote, statusOf, type SyncState, type Rating } from '../../scripts/store';
+
+  const page = document.querySelector<HTMLElement>('.qpage')!;
+  const id = Number(page.dataset.id);
+  const question = page.dataset.question ?? '';
+
+  const $ = <T extends HTMLElement>(sel: string) => document.querySelector<T>(sel)!;
+  const saveEl = $('#save-state');
+  const answerEl = $<HTMLTextAreaElement>('#answer');
+  const notesEl = $<HTMLTextAreaElement>('#notes');
+  const hints = [...document.querySelectorAll<HTMLElement>('.hint')];
+  const moreHint = $<HTMLButtonElement>('#more-hint');
+  const hintCount = $('#hint-count');
+  const checks = [...document.querySelectorAll<HTMLInputElement>('[data-check]')];
+  const backup = $('#backup');
+  const gate = $('#gate');
+  const nudge = $('#nudge');
+  const rateBtns = [...document.querySelectorAll<HTMLButtonElement>('[data-rate]')];
+  const wordcount = $('#wordcount');
+
+  function showSync(st: SyncState) {
+    saveEl.dataset.kind = st.kind;
+    if (st.kind === 'local') saveEl.textContent = 'Saved on this device';
+    else if (st.kind === 'saving') saveEl.textContent = 'Saving to GitHub…';
+    else if (st.kind === 'synced') saveEl.textContent = st.at ? `Saved to GitHub · ${formatTime(st.at)}` : 'Connected to GitHub';
+    else saveEl.textContent = `⚠ ${st.message}`;
+  }
+
+  const ctl = createNoteController(id, question, showSync);
+
+  function render() {
+    const n = ctl.get();
+    if (document.activeElement !== answerEl) answerEl.value = n.answer;
+    if (document.activeElement !== notesEl) notesEl.value = n.notes;
+    hints.forEach((h, i) => (h.hidden = i >= n.hintsShown));
+    hintCount.textContent = `(${n.hintsShown} of ${hints.length})`;
+    moreHint.hidden = n.hintsShown >= hints.length;
+    checks.forEach((c, i) => (c.checked = n.checks.includes(i)));
+    backup.hidden = !n.revealed;
+    gate.hidden = n.revealed;
+    rateBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.rate === n.rating)));
+    countWords();
+  }
+
+  function countWords() {
+    const w = answerEl.value.trim() ? answerEl.value.trim().split(/\s+/).length : 0;
+    wordcount.textContent = `${w} word${w === 1 ? '' : 's'}`;
+  }
+
+  answerEl.addEventListener('input', () => {
+    ctl.update({ answer: answerEl.value });
+    countWords();
+  });
+  notesEl.addEventListener('input', () => ctl.update({ notes: notesEl.value }));
+
+  moreHint.addEventListener('click', () => {
+    ctl.update({ hintsShown: Math.min(hints.length, ctl.get().hintsShown + 1) });
+    render();
+  });
+
+  checks.forEach((c) =>
+    c.addEventListener('change', () => {
+      const set = new Set(ctl.get().checks);
+      const i = Number(c.dataset.check);
+      c.checked ? set.add(i) : set.delete(i);
+      ctl.update({ checks: [...set].sort((a, b) => a - b) });
+    }),
+  );
+
+  function reveal() {
+    ctl.update({ revealed: true });
+    render();
+    backup.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  $('#reveal').addEventListener('click', () => {
+    if (ctl.get().answer.trim().split(/\s+/).filter(Boolean).length < 8) nudge.hidden = false;
+    else reveal();
+  });
+  $('#reveal-anyway').addEventListener('click', reveal);
+
+  rateBtns.forEach((b) =>
+    b.addEventListener('click', () => {
+      const r = b.dataset.rate as Rating;
+      const next = ctl.get().rating === r ? '' : r;
+      ctl.update({ rating: next });
+      render();
+      const cheer = $('#cheer');
+      cheer.classList.remove('burst');
+      if (next === 'got') {
+        const total = Number(page.dataset.total);
+        let nailed = 0;
+        for (let i = 1; i <= total; i++) if (statusOf(getNote(i)) === 'mastered') nailed++;
+        const lines = ['Nice work!', 'You got it!', 'Boom. Nailed it.', 'That one is yours now.', 'Look at you go!'];
+        cheer.textContent = `🎉 ${lines[nailed % lines.length]} ${nailed} of ${total} nailed.`;
+        void cheer.offsetWidth;
+        cheer.classList.add('burst');
+      } else if (next === 'partly') cheer.textContent = 'Close! Add what was missing to your answer, then come back to it.';
+      else if (next === 'review') cheer.textContent = 'Added to your review list. Coming back to it is how it sticks.';
+      else cheer.textContent = '';
+    }),
+  );
+
+  // research tools follow whatever is in the search box
+  const box = $<HTMLInputElement>('#search-box');
+  const toolLinks = [...document.querySelectorAll<HTMLAnchorElement>('.tool')];
+  const retarget = () => {
+    const q = encodeURIComponent(box.value.trim());
+    toolLinks.forEach((a) => (a.href = (a.dataset.url ?? '').replace('%s', q)));
+  };
+  box.addEventListener('input', retarget);
+  document.querySelectorAll<HTMLButtonElement>('.suggestion').forEach((b) =>
+    b.addEventListener('click', () => {
+      box.value = b.dataset.s ?? '';
+      retarget();
+      box.focus();
+    }),
+  );
+
+  // arrow keys move between questions (not while typing)
+  document.addEventListener('keydown', (e) => {
+    const t = e.target as HTMLElement;
+    if (t.closest('input, textarea, [contenteditable]') || e.altKey || e.metaKey || e.ctrlKey) return;
+    const dir = e.key === 'ArrowLeft' ? 'prev' : e.key === 'ArrowRight' ? 'next' : '';
+    const link = dir && document.querySelector<HTMLAnchorElement>(`[data-key="${dir}"]`);
+    if (link) link.click();
+  });
+
+  // try to finish saving before leaving the page
+  window.addEventListener('pagehide', () => ctl.flush());
+  document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && ctl.flush());
+
+  try {
+    localStorage.setItem('civics:last', String(id));
+  } catch {}
+
+  render();
+  ctl.pull().then((changed) => changed && render());
+</script>

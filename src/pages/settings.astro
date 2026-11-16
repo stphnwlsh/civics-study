@@ -1,0 +1,203 @@
+---
+import Base from '../layouts/Base.astro';
+import { QUESTIONS } from '../data/questions.js';
+
+const list = QUESTIONS.map(({ id, q }) => ({ id, q }));
+---
+
+<Base title="Settings" current="settings">
+  <main class="wrap settings" data-questions={JSON.stringify(list)}>
+    <h1>Settings</h1>
+
+    <section class="panel">
+      <h2>Save notes to GitHub</h2>
+      <p>
+        Your answers always save in this browser first. Connect a private GitHub repo and every question is also saved
+        there as a file, so your work lasts and shows up on any device you set up.
+      </p>
+      <form id="gh-form" class="form">
+        <div class="row">
+          <div>
+            <label for="owner">GitHub owner</label>
+            <input type="text" id="owner" autocomplete="off" spellcheck="false" />
+          </div>
+          <div>
+            <label for="repo">Notes repo</label>
+            <input type="text" id="repo" autocomplete="off" spellcheck="false" />
+          </div>
+        </div>
+        <div>
+          <label for="token">Access token</label>
+          <input type="password" id="token" autocomplete="off" spellcheck="false" placeholder="github_pat_…" />
+          <p class="hint">
+            The token stays in this browser and is only sent to GitHub. Ask a parent to set this up if you don't have one.
+          </p>
+        </div>
+        <div class="actions">
+          <button type="submit" class="btn primary">Save and test</button>
+          <button type="button" class="btn" id="sync-now">Sync now</button>
+          <button type="button" class="btn ghost" id="forget">Disconnect</button>
+        </div>
+        <p class="result" id="gh-result" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>Backup file</h2>
+      <p>Download everything as one file, or load a backup into this browser.</p>
+      <div class="actions">
+        <button type="button" class="btn" id="export">Download backup</button>
+        <label class="btn" for="import">Load a backup…</label>
+        <input type="file" id="import" accept="application/json,.json" hidden />
+      </div>
+      <p class="result" id="backup-result" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="panel">
+      <h2>Lock this device</h2>
+      <p>If the site asked for a password, this forgets it on this device so it asks again next time.</p>
+      <button type="button" class="btn" id="lock">Forget the site password here</button>
+    </section>
+  </main>
+</Base>
+
+<style>
+  .settings {
+    padding-block: 28px 0;
+    display: grid;
+    gap: 20px;
+  }
+  h1 {
+    font: 700 2rem/1.1 var(--font-display);
+    margin: 0;
+  }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 20px;
+    display: grid;
+    gap: 12px;
+  }
+  .panel h2 {
+    font: 700 1.2rem/1.2 var(--font-display);
+    margin: 0;
+  }
+  .panel p {
+    margin: 0;
+    color: var(--ink-soft);
+    max-width: 62ch;
+  }
+  .form {
+    display: grid;
+    gap: 14px;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+  }
+  label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.92rem;
+  }
+  label.btn {
+    display: inline-flex;
+    margin: 0;
+  }
+  .hint {
+    font-size: 0.85rem;
+    margin-top: 6px !important;
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .result {
+    font-size: 0.92rem;
+    min-height: 1.4em;
+  }
+  .result[data-ok='true'] {
+    color: var(--ok) !important;
+  }
+  .result[data-ok='false'] {
+    color: var(--bad) !important;
+  }
+</style>
+
+<script>
+  import { getSettings, saveSettings, testConnection, syncAll, exportAll, importAll, DEFAULT_SETTINGS } from '../scripts/store';
+
+  const root = document.querySelector<HTMLElement>('.settings')!;
+  const questions: { id: number; q: string }[] = JSON.parse(root.dataset.questions ?? '[]');
+  const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+  const owner = $<HTMLInputElement>('owner');
+  const repo = $<HTMLInputElement>('repo');
+  const token = $<HTMLInputElement>('token');
+  const result = $('gh-result');
+
+  const s = getSettings();
+  owner.value = s.owner;
+  repo.value = s.repo;
+  token.value = s.token;
+
+  const say = (el: HTMLElement, ok: boolean | null, msg: string) => {
+    el.textContent = msg;
+    if (ok === null) delete el.dataset.ok;
+    else el.dataset.ok = String(ok);
+  };
+
+  $('gh-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const next = { ...getSettings(), owner: owner.value.trim(), repo: repo.value.trim(), token: token.value.trim() };
+    saveSettings(next);
+    say(result, null, 'Testing…');
+    const t = await testConnection(next);
+    if (!t.ok) return say(result, false, t.message);
+    say(result, null, `${t.message} Syncing…`);
+    const r = await syncAll(questions, (m) => say(result, null, m));
+    say(result, r.ok, r.ok ? `${t.message} ${r.message}` : r.message);
+  });
+
+  $('sync-now').addEventListener('click', async () => {
+    say(result, null, 'Syncing…');
+    const r = await syncAll(questions, (m) => say(result, null, m));
+    say(result, r.ok, r.message);
+  });
+
+  $('forget').addEventListener('click', () => {
+    saveSettings({ ...DEFAULT_SETTINGS, owner: owner.value.trim(), repo: repo.value.trim(), token: '' });
+    token.value = '';
+    say(result, true, 'Disconnected. Your notes stay on GitHub and in this browser.');
+  });
+
+  $('export').addEventListener('click', () => {
+    const blob = new Blob([exportAll(questions.map((q) => q.id))], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `civics-study-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    say($('backup-result'), true, 'Backup downloaded.');
+  });
+
+  $<HTMLInputElement>('import').addEventListener('change', async (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    try {
+      const n = importAll(await file.text());
+      say($('backup-result'), true, `Loaded ${n} question${n === 1 ? '' : 's'} from the backup.`);
+    } catch (err) {
+      say($('backup-result'), false, (err as Error).message);
+    }
+  });
+
+  $('lock').addEventListener('click', () => {
+    try {
+      localStorage.removeItem('civics:sitekey');
+    } catch {}
+    location.reload();
+  });
+</script>

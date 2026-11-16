@@ -1,0 +1,22 @@
+version: 2
+
+# One pull request a month, on the 15th, with everything in it. Nothing here runs in the
+# browser except Astro's own output, so there's no rush: a monthly sweep keeps the build
+# current without a stream of notifications during homework season.
+multi-ecosystem-groups:
+  monthly-dependencies:
+    schedule:
+      interval: "cron"
+      cronjob: "0 9 15 * *"
+      timezone: "America/Chicago"
+
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    patterns: ["*"]
+    multi-ecosystem-group: "monthly-dependencies"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    patterns: ["*"]
+    multi-ecosystem-group: "monthly-dependencies"
