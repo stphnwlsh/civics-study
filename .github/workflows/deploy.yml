@@ -44,6 +44,9 @@ jobs:
       - name: Build and encrypt
         env:
           SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
+          # Optional. Her first name for the yard signs. Kept as a secret so it only ever
+          # appears inside the encrypted pages, not in this public repo.
+          STUDENT_NAME: ${{ secrets.STUDENT_NAME }}
           ASTRO_TELEMETRY_DISABLED: 1
         run: npm run build
 
