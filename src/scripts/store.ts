@@ -49,7 +49,7 @@ export const DEFAULT_SETTINGS: Settings = {
 
 /* ───────── browser storage (always wrapped: it can be blocked) ───────── */
 
-function read<T>(key: string): T | null {
+export function read<T>(key: string): T | null {
   try {
     const raw = localStorage.getItem(key);
     return raw ? (JSON.parse(raw) as T) : null;
@@ -58,7 +58,7 @@ function read<T>(key: string): T | null {
   }
 }
 
-function write(key: string, value: unknown) {
+export function write(key: string, value: unknown) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch {
@@ -160,20 +160,20 @@ export function fromMarkdown(md: string): Partial<Note> {
 
 /* ───────── GitHub contents API ───────── */
 
-function b64encode(text: string) {
+export function b64encode(text: string) {
   const bytes = new TextEncoder().encode(text);
   let bin = '';
   bytes.forEach((b) => (bin += String.fromCharCode(b)));
   return btoa(bin);
 }
 
-function b64decode(b64: string) {
+export function b64decode(b64: string) {
   const bin = atob(b64.replace(/\n/g, ''));
   const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
   return new TextDecoder().decode(bytes);
 }
 
-async function gh(s: Settings, path: string, init: RequestInit = {}) {
+export async function gh(s: Settings, path: string, init: RequestInit = {}) {
   const res = await fetch(`https://api.github.com/repos/${s.owner}/${s.repo}${path}`, {
     ...init,
     headers: {
@@ -187,7 +187,7 @@ async function gh(s: Settings, path: string, init: RequestInit = {}) {
   return res;
 }
 
-function explain(status: number) {
+export function explain(status: number) {
   if (status === 401) return 'GitHub did not accept the token. It may have expired: make a new one in Settings.';
   if (status === 403) return 'The token is not allowed to write to the notes repo. Check its permissions in Settings.';
   if (status === 404) return 'GitHub could not find the notes repo. Check the owner and repo name in Settings.';
@@ -407,7 +407,7 @@ export function formatTime(iso: string) {
 
 const DAYS_KEY = 'civics:days';
 
-function localDay(d = new Date()) {
+export function localDay(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 

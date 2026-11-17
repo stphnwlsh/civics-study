@@ -4,7 +4,7 @@ import '../styles/global.css';
 interface Props {
   title: string;
   description?: string;
-  current?: 'home' | 'glossary' | 'settings' | 'question';
+  current?: 'home' | 'glossary' | 'quiz' | 'settings' | 'question';
 }
 
 const { title, description = 'Study one civics question at a time: hints, research tools, your own notes, and a backup answer.', current } = Astro.props;
@@ -31,16 +31,17 @@ const pageTitle = title === 'Civics Study' ? title : `${title} · Civics Study`;
   <body>
     <header class="topbar">
       <div class="wrap">
-        <a class="brand" href={`${base}/`}>
+        <a class="brand" href={`${base}/`} aria-label="Civics Study home">
           <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
             <rect x="3" y="9" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2" />
             <path d="M8 9V5.5A1.5 1.5 0 0 1 9.5 4h5A1.5 1.5 0 0 1 16 5.5V9" fill="none" stroke="currentColor" stroke-width="2" />
             <path d="M9 13.5l2 2 4-4" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
-          Civics Study
+          <span class="brand-text">Civics Study</span>
         </a>
         <nav class="topnav" aria-label="Main">
           <a href={`${base}/`} aria-current={current === 'home' ? 'page' : undefined}>Questions</a>
+          <a href={`${base}/quiz/`} aria-current={current === 'quiz' ? 'page' : undefined}>Quiz</a>
           <a href={`${base}/glossary/`} aria-current={current === 'glossary' ? 'page' : undefined}>Key terms</a>
           <a href={`${base}/settings/`} aria-current={current === 'settings' ? 'page' : undefined}>Settings</a>
         </nav>

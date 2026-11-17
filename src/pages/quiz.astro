@@ -1,0 +1,1103 @@
+---
+import Base from '../layouts/Base.astro';
+import { QUIZ, QUIZ_LEVELS } from '../data/quiz.js';
+import { TOPICS } from '../data/questions.js';
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const units = Object.entries(TOPICS).map(([key, t]) => ({ key, name: t.name, short: t.short, color: t.color }));
+const ladder = [...QUIZ_LEVELS].reverse();
+---
+
+<Base title="Final quiz" current="quiz" description="A 20-question practice quiz drawn from all six civics units.">
+  <main class="wrap quiz" data-base={base} data-units={JSON.stringify(units)}>
+    <!-- ───────── start ───────── -->
+    <section class="screen" id="start">
+      <p class="eyebrow">Final quiz · {QUIZ.length} questions in the pool</p>
+      <h1>Twenty questions. Every unit.</h1>
+      <p class="lede">
+        Each round pulls 20 questions from all six units, so no two rounds are the same. Take it as often as you like.
+        Every round is saved, and the results show which topics to study next.
+      </p>
+
+      <ol class="ladder" aria-label="Levels">
+        {ladder.map((l) => (
+          <li class="rung" data-at={l.at}>
+            <span class="ricon" aria-hidden="true">{l.icon}</span>
+            <span class="rname">{l.name}</span>
+            <span class="rmeta"><span class="mono">{l.at}+</span> · {l.medal}</span>
+          </li>
+        ))}
+      </ol>
+
+      <div class="cta">
+        <button type="button" class="btn primary big" id="begin">Start a round →</button>
+        <button type="button" class="btn" id="resume" hidden>Finish my round</button>
+      </div>
+
+      <div class="history" id="history" hidden>
+        <div class="stats">
+          <div><span class="label">Rounds</span><span class="mono val" id="h-rounds">0</span></div>
+          <div><span class="label">Best</span><span class="val"><span class="mono" id="h-best">0</span><span class="of mono">/20</span></span></div>
+          <div><span class="label">Last</span><span class="val"><span class="mono" id="h-last">0</span><span class="of mono">/20</span></span></div>
+        </div>
+
+        <h2>Your rounds</h2>
+        <div class="chart" id="chart" role="img" aria-label="Scores of recent rounds">
+          <span class="line" style="--at: 18" data-label="18"></span>
+          <span class="line" style="--at: 15" data-label="15"></span>
+          <span class="line" style="--at: 12" data-label="12"></span>
+          <span class="line" style="--at: 9" data-label="9"></span>
+          <div class="bars" id="bars"></div>
+        </div>
+
+        <h2>Topics, last 5 rounds</h2>
+        <ul class="topics" id="h-topics"></ul>
+
+        <details class="log">
+          <summary>Every round</summary>
+          <ol class="loglist" id="loglist"></ol>
+        </details>
+      </div>
+      <p class="syncline" id="syncline" role="status" aria-live="polite"></p>
+    </section>
+
+    <!-- ───────── one question at a time ───────── -->
+    <section class="screen" id="play" hidden>
+      <div class="playhead">
+        <span class="count"><span class="mono" id="qnum">1</span> of 20</span>
+        <span class="tally" aria-label="Correct so far"><span aria-hidden="true">✓</span> <span class="mono" id="tally">0</span></span>
+        <span class="combo" id="combo" aria-hidden="true"></span>
+        <button type="button" class="btn ghost small" id="quit">Stop</button>
+      </div>
+      <ol class="pips" id="pips" aria-hidden="true"></ol>
+
+      <div class="qcard" id="qcard">
+        <span class="chip unit" id="qunit"></span>
+        <h2 class="qtext" id="qtext"></h2>
+        <div class="choices" id="choices" role="group" aria-labelledby="qtext"></div>
+        <div class="feedback" id="feedback" role="status" aria-live="polite" hidden>
+          <p class="verdict" id="verdict"></p>
+          <p class="explain" id="explain"></p>
+          <button type="button" class="btn primary" id="next">Next question →</button>
+        </div>
+      </div>
+      <p class="keys">Tip: press 1–4 to answer and Enter for the next question.</p>
+    </section>
+
+    <!-- ───────── results ───────── -->
+    <section class="screen" id="done" hidden>
+      <div class="medal" id="medal">
+        <div class="mdisc" id="mdisc"><span class="micon" id="micon">🏛️</span></div>
+        <p class="score"><span class="mono" id="score">0</span><span class="of mono">/20</span></p>
+        <p class="mname" id="mname"></p>
+        <p class="mblurb" id="mblurb"></p>
+        <p class="mnext" id="mnext"></p>
+        <span class="newbest" id="newbest" hidden>★ New best</span>
+      </div>
+
+      <h2>How you did by topic</h2>
+      <ul class="topics big" id="r-topics"></ul>
+
+      <div class="cta">
+        <button type="button" class="btn primary" id="again">Take another round →</button>
+        <button type="button" class="btn" id="back">See all my rounds</button>
+      </div>
+
+      <section class="missed" id="missed-wrap" hidden>
+        <h2>The ones you missed</h2>
+        <ol class="missedlist" id="missed"></ol>
+      </section>
+      <p class="syncline" id="r-sync" role="status" aria-live="polite"></p>
+    </section>
+  </main>
+</Base>
+
+<style is:global>
+  /* Global (this page only) because the quiz builds most of its markup in the browser. */
+  .quiz {
+    padding-block: 28px 0;
+  }
+  .screen {
+    display: grid;
+    gap: 22px;
+  }
+  .eyebrow {
+    margin: 0;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+  h1 {
+    font: 700 clamp(2rem, 1.4rem + 3vw, 3rem) / 1.1 var(--font-display);
+    margin: -10px 0 0;
+    letter-spacing: -0.02em;
+  }
+  h2 {
+    font: 700 1.25rem/1.2 var(--font-display);
+    margin: 8px 0 0;
+  }
+  .lede {
+    margin: -8px 0 0;
+    color: var(--ink-soft);
+    max-width: 60ch;
+  }
+  .cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .btn.big {
+    font-size: 1.05rem;
+    padding: 14px 22px;
+  }
+  .of {
+    color: var(--muted);
+    font-size: 0.8em;
+  }
+  .syncline {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--muted);
+    min-height: 1.3em;
+  }
+
+  /* ── level ladder ── */
+  .ladder {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .rung {
+    display: grid;
+    justify-items: center;
+    text-align: center;
+    gap: 2px;
+    padding: 14px 6px 12px;
+    border: 2px dashed var(--line);
+    border-radius: 14px;
+    color: var(--muted);
+  }
+  .ricon {
+    font-size: 1.7rem;
+    line-height: 1.2;
+    filter: grayscale(1);
+    opacity: 0.55;
+  }
+  .rname {
+    font: 700 0.95rem/1.2 var(--font-display);
+  }
+  .rmeta {
+    font-size: 0.75rem;
+  }
+  .rung.earned {
+    border: 2px solid var(--gold);
+    background: var(--gold-soft);
+    color: var(--ink);
+  }
+  .rung.earned .ricon {
+    filter: none;
+    opacity: 1;
+  }
+
+  /* ── history ── */
+  .history {
+    display: grid;
+    gap: 14px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: var(--shadow);
+  }
+  .history h2 {
+    font-size: 1.05rem;
+    margin-top: 6px;
+  }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .stats > div {
+    display: grid;
+    gap: 2px;
+  }
+  .label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  .val {
+    font-size: 1.6rem;
+    font-weight: 600;
+    line-height: 1.1;
+  }
+  .chart {
+    position: relative;
+    height: 140px;
+    margin-left: 22px;
+    border-bottom: 1px solid var(--line);
+  }
+  .line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: calc(var(--at) / 20 * 100%);
+    border-top: 1px dashed var(--line);
+  }
+  .line::before {
+    content: attr(data-label);
+    position: absolute;
+    left: -22px;
+    top: -0.65em;
+    font: 500 0.68rem/1 var(--font-mono);
+    color: var(--muted);
+  }
+  .bars {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    padding-inline: 4px;
+  }
+  .bar {
+    flex: 1;
+    max-width: 34px;
+    height: calc(var(--s) / 20 * 100%);
+    min-height: 3px;
+    border-radius: 5px 5px 0 0;
+    background: var(--accent);
+    position: relative;
+  }
+  .bar[data-tier='3'] {
+    background: var(--gold);
+  }
+  .bar[data-tier='0'] {
+    background: var(--muted);
+  }
+  .bar span {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    font: 500 0.7rem/1.6 var(--font-mono);
+    color: var(--ink-soft);
+  }
+  .log summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+  .loglist {
+    list-style: none;
+    padding: 0;
+    margin: 10px 0 0;
+    display: grid;
+    gap: 4px;
+  }
+  .loglist li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 12px;
+    align-items: center;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--paper);
+    font-size: 0.92rem;
+  }
+  .loglist .when {
+    color: var(--ink-soft);
+  }
+
+  /* ── topic bars, shared by history and results ── */
+  .topics {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 8px;
+  }
+  .topic {
+    display: grid;
+    grid-template-columns: 11rem minmax(0, 1fr) 3.2rem;
+    gap: 10px;
+    align-items: center;
+    font-size: 0.92rem;
+  }
+  .tname {
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .tname::before {
+    content: '';
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--c);
+    flex: none;
+  }
+  .tbar {
+    height: 10px;
+    border-radius: 99px;
+    background: var(--line);
+    overflow: hidden;
+  }
+  .tbar span {
+    display: block;
+    height: 100%;
+    width: calc(var(--p) * 100%);
+    background: var(--c);
+    border-radius: inherit;
+  }
+  .tnum {
+    text-align: right;
+    font-family: var(--font-mono);
+    color: var(--ink-soft);
+  }
+  .topic.focus .tname::after {
+    content: 'Focus here';
+    font: 600 0.68rem/1 var(--font-body);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--warn);
+    background: var(--warn-soft);
+    padding: 3px 6px;
+    border-radius: 99px;
+    white-space: nowrap;
+  }
+  .topics.big .topic {
+    grid-template-columns: 9.5rem minmax(0, 1fr) 3.2rem;
+    padding: 12px 14px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--c);
+    border-radius: 10px;
+  }
+  .twork {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.88rem;
+    color: var(--ink-soft);
+  }
+  .twork strong {
+    color: var(--warn);
+  }
+  .twork.good strong {
+    color: var(--ok);
+  }
+  .twork a {
+    font: 600 0.82rem/1 var(--font-mono);
+    padding: 5px 8px;
+    border-radius: 6px;
+    background: var(--accent-soft);
+    text-decoration: none;
+  }
+
+  /* ── play ── */
+  .playhead {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-weight: 600;
+  }
+  .count {
+    color: var(--ink-soft);
+  }
+  .tally {
+    color: var(--ok);
+  }
+  .combo {
+    color: var(--warn);
+    font-size: 0.9rem;
+  }
+  .playhead .btn {
+    margin-left: auto;
+  }
+  .pips {
+    list-style: none;
+    margin: -12px 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(20, 1fr);
+    gap: 3px;
+  }
+  .pips li {
+    height: 6px;
+    border-radius: 99px;
+    background: var(--line);
+  }
+  .pips li[data-s='now'] {
+    background: var(--accent);
+  }
+  .pips li[data-s='right'] {
+    background: var(--ok);
+  }
+  .pips li[data-s='wrong'] {
+    background: var(--bad);
+  }
+  .qcard {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-top: 4px solid var(--c, var(--accent));
+    border-radius: 16px;
+    padding: 22px;
+    display: grid;
+    gap: 16px;
+    box-shadow: var(--shadow);
+  }
+  .qcard.enter {
+    animation: slidein 0.28s ease-out;
+  }
+  @keyframes slidein {
+    from {
+      opacity: 0;
+      transform: translateX(14px);
+    }
+  }
+  .unit {
+    justify-self: start;
+    background: color-mix(in srgb, var(--c) 14%, var(--card));
+    color: var(--ink);
+  }
+  .unit::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--c);
+  }
+  .qtext {
+    font: 700 1.35rem/1.35 var(--font-display);
+    margin: 0;
+  }
+  .choices {
+    display: grid;
+    gap: 10px;
+  }
+  .choice {
+    display: grid;
+    grid-template-columns: 2rem minmax(0, 1fr) 1.4rem;
+    align-items: center;
+    gap: 12px;
+    text-align: left;
+    font: 400 1rem/1.4 var(--font-body);
+    color: var(--ink);
+    background: var(--paper);
+    border: 2px solid var(--line);
+    border-radius: 12px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition:
+      border-color 0.15s,
+      transform 0.15s;
+  }
+  .choice:hover:not(:disabled) {
+    border-color: var(--accent);
+    transform: translateY(-1px);
+  }
+  .choice:disabled {
+    cursor: default;
+  }
+  .key {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    font: 600 0.85rem/1 var(--font-mono);
+    background: var(--card);
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
+  }
+  .mark {
+    font-weight: 700;
+    text-align: center;
+  }
+  .choice[data-r='right'] {
+    border-color: var(--ok);
+    background: var(--ok-soft);
+  }
+  .choice[data-r='right'] .mark {
+    color: var(--ok);
+  }
+  .choice[data-r='wrong'] {
+    border-color: var(--bad);
+    background: color-mix(in srgb, var(--bad) 12%, var(--card));
+    animation: shake 0.35s;
+  }
+  .choice[data-r='wrong'] .mark {
+    color: var(--bad);
+  }
+  .choice[data-r='other'] {
+    opacity: 0.55;
+  }
+  .choice[data-r='right'].picked {
+    animation: pop 0.35s;
+  }
+  @keyframes pop {
+    50% {
+      transform: scale(1.025);
+    }
+  }
+  @keyframes shake {
+    25% {
+      transform: translateX(-5px);
+    }
+    75% {
+      transform: translateX(5px);
+    }
+  }
+  .feedback {
+    display: grid;
+    gap: 10px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: var(--paper);
+  }
+  .feedback p {
+    margin: 0;
+  }
+  .verdict {
+    font-weight: 700;
+  }
+  .verdict[data-ok='true'] {
+    color: var(--ok);
+  }
+  .verdict[data-ok='false'] {
+    color: var(--bad);
+  }
+  .explain {
+    color: var(--ink-soft);
+  }
+  .feedback .btn {
+    justify-self: start;
+  }
+  .keys {
+    margin: -8px 0 0;
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+  @media (hover: none) {
+    .keys {
+      display: none;
+    }
+  }
+
+  /* ── results ── */
+  .medal {
+    display: grid;
+    justify-items: center;
+    text-align: center;
+    gap: 4px;
+    padding: 26px 20px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+  }
+  .mdisc {
+    width: 104px;
+    height: 104px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    margin-bottom: 6px;
+    border: 2px dashed var(--line);
+    background: var(--paper);
+  }
+  .medal[data-medal] .mdisc {
+    border: 4px solid #fff;
+    outline: 3px solid var(--m);
+    background: radial-gradient(circle at 32% 28%, color-mix(in srgb, var(--m) 45%, #fff), var(--m) 72%);
+    box-shadow: 0 6px 18px color-mix(in srgb, var(--m) 45%, transparent);
+    animation: medalin 0.6s cubic-bezier(0.2, 1.5, 0.4, 1);
+  }
+  .medal[data-medal='Bronze'] {
+    --m: #b8733a;
+  }
+  .medal[data-medal='Silver'] {
+    --m: #9aa4b5;
+  }
+  .medal[data-medal='Gold'] {
+    --m: #e0a100;
+  }
+  .medal[data-medal='Platinum'] {
+    --m: #6f8fd8;
+  }
+  @keyframes medalin {
+    from {
+      transform: scale(0.4) rotate(-25deg);
+      opacity: 0;
+    }
+  }
+  .micon {
+    font-size: 2.8rem;
+    line-height: 1;
+  }
+  .score {
+    margin: 0;
+    font-size: 2.6rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+  .mname {
+    margin: 4px 0 0;
+    font: 700 1.4rem/1.2 var(--font-display);
+  }
+  .mblurb,
+  .mnext {
+    margin: 0;
+    color: var(--ink-soft);
+  }
+  .mnext {
+    font-size: 0.92rem;
+  }
+  .newbest {
+    margin-top: 6px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--highlight-ink);
+    background: var(--highlight);
+    padding: 5px 10px;
+    border-radius: 99px;
+  }
+  .missed {
+    display: grid;
+    gap: 12px;
+  }
+  .missedlist {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 10px;
+  }
+  .missedlist li {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--c);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: grid;
+    gap: 6px;
+  }
+  .missedlist p {
+    margin: 0;
+  }
+  .mq {
+    font-weight: 600;
+  }
+  .yours {
+    color: var(--bad);
+  }
+  .right {
+    color: var(--ok);
+  }
+  .mx {
+    color: var(--ink-soft);
+    font-size: 0.92rem;
+  }
+  .mlink {
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+
+  @media (max-width: 520px) {
+    .ladder {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .topic,
+    .topics.big .topic {
+      grid-template-columns: 6.6rem minmax(0, 1fr) 2.8rem;
+    }
+    .topic.focus .tname::after {
+      display: none;
+    }
+    .qcard {
+      padding: 18px;
+    }
+    .qtext {
+      font-size: 1.2rem;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .qcard.enter,
+    .choice,
+    .medal[data-medal] .mdisc {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+</style>
+
+<script>
+  import { QUIZ, QUIZ_LEVELS } from '../data/quiz.js';
+  import { getAttempts, saveAttempt, syncQuiz, levelFor, bestScore, lastRound, setLastRound, type Attempt } from '../scripts/quizstore';
+  import { read, write, syncEnabled, formatTime } from '../scripts/store';
+  import { confetti } from '../scripts/confetti';
+
+  type Unit = { key: string; name: string; short: string; color: string };
+  type Item = { i: number; q: string; order: string[] };
+  type Round = { id: string; items: Item[]; answers: (string | null)[] };
+
+  const ROUND = 20;
+  const ROUND_KEY = 'civics:quizround';
+  const root = document.querySelector<HTMLElement>('.quiz')!;
+  const base = root.dataset.base ?? '';
+  const units: Unit[] = JSON.parse(root.dataset.units ?? '[]');
+  const unitOf = Object.fromEntries(units.map((u) => [u.key, u]));
+  const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
+  const screens = { start: $('start'), play: $('play'), done: $('done') };
+
+  const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+  function shuffle<T>(a: T[]): T[] {
+    const b = [...a];
+    for (let i = b.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [b[i], b[j]] = [b[j], b[i]];
+    }
+    return b;
+  }
+
+  function show(name: keyof typeof screens) {
+    for (const [k, el] of Object.entries(screens)) el.hidden = k !== name;
+    window.scrollTo({ top: 0 });
+  }
+
+  /* ───────── building a round ───────── */
+
+  /** Three or four questions from every unit, skipping last round's questions where possible. */
+  function buildRound(): Round {
+    const seen = new Set(lastRound());
+    const keys = units.map((u) => u.key);
+    const per = Object.fromEntries(keys.map((k) => [k, Math.floor(ROUND / keys.length)]));
+    for (const k of shuffle(keys).slice(0, ROUND % keys.length)) per[k]++;
+    const picked: number[] = [];
+    for (const k of keys) {
+      const pool = shuffle(QUIZ.map((x, i) => ({ x, i })).filter(({ x }) => x.t === k));
+      pool.sort((a, b) => Number(seen.has(a.x.q)) - Number(seen.has(b.x.q)));
+      picked.push(...pool.slice(0, per[k]).map(({ i }) => i));
+    }
+    const items = shuffle(picked).map((i) => ({ i, q: QUIZ[i].q, order: shuffle([QUIZ[i].a, ...QUIZ[i].w]) }));
+    return { id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`, items, answers: items.map(() => null) };
+  }
+
+  function savedRound(): Round | null {
+    const r = read<Round>(ROUND_KEY);
+    if (!r || r.items?.length !== ROUND) return null;
+    // the pool may have been edited since this round started
+    if (r.items.some((it) => QUIZ[it.i]?.q !== it.q)) return null;
+    if (r.answers.every((a) => a !== null)) return null;
+    return r;
+  }
+  function clearRound() {
+    try {
+      localStorage.removeItem(ROUND_KEY);
+    } catch {}
+  }
+
+  /* ───────── start screen ───────── */
+
+  function sumTopics(list: Attempt[]) {
+    const tot: Record<string, [number, number]> = {};
+    for (const a of list)
+      for (const [k, [r, n]] of Object.entries(a.byTopic)) {
+        tot[k] ??= [0, 0];
+        tot[k][0] += r;
+        tot[k][1] += n;
+      }
+    return tot;
+  }
+
+  function topicRow(k: string, r: number, n: number, focus = false) {
+    const u = unitOf[k];
+    return `<li class="topic${focus ? ' focus' : ''}" style="--c:${u.color};--p:${n ? r / n : 0}">
+      <span class="tname">${esc(u.short)}</span>
+      <span class="tbar"><span></span></span>
+      <span class="tnum">${n ? Math.round((r / n) * 100) : 0}%</span>
+    </li>`;
+  }
+
+  function tier(score: number) {
+    const l = levelFor(score);
+    return l ? QUIZ_LEVELS.length - QUIZ_LEVELS.indexOf(l) - 1 : -1;
+  }
+
+  function renderStart() {
+    const attempts = getAttempts();
+    const best = bestScore(attempts);
+    document.querySelectorAll<HTMLElement>('.rung').forEach((el) => el.classList.toggle('earned', best >= Number(el.dataset.at)));
+    $('resume').hidden = !savedRound();
+    if (savedRound()) {
+      const r = savedRound()!;
+      $('resume').textContent = `Finish my round (question ${r.answers.filter((a) => a !== null).length + 1} of ${ROUND})`;
+    }
+    $('begin').textContent = attempts.length ? 'Start a new round →' : 'Start a round →';
+
+    $('history').hidden = attempts.length === 0;
+    if (!attempts.length) return;
+    $('h-rounds').textContent = String(attempts.length);
+    $('h-best').textContent = String(best);
+    $('h-last').textContent = String(attempts[attempts.length - 1].score);
+
+    const recent = attempts.slice(-15);
+    $('bars').innerHTML = recent
+      .map((a) => `<div class="bar" style="--s:${a.score}" data-tier="${tier(a.score)}" title="${formatTime(a.at)}: ${a.score}/20"><span>${a.score}</span></div>`)
+      .join('');
+    $('chart').setAttribute('aria-label', `Scores of your last ${recent.length} rounds: ${recent.map((a) => a.score).join(', ')} out of 20`);
+
+    const tot = sumTopics(attempts.slice(-5));
+    const rows = units.filter((u) => tot[u.key]?.[1]).map((u) => ({ k: u.key, r: tot[u.key][0], n: tot[u.key][1] }));
+    const worst = [...rows].sort((a, b) => a.r / a.n - b.r / b.n)[0];
+    $('h-topics').innerHTML = rows.map((t) => topicRow(t.k, t.r, t.n, t === worst && t.r < t.n)).join('');
+
+    $('loglist').innerHTML = [...attempts]
+      .reverse()
+      .map((a) => {
+        const l = levelFor(a.score, a.total);
+        const when = new Date(a.at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+        return `<li><span class="when">${when}</span><span class="mono">${a.score}/${a.total}</span><span>${l ? `${l.icon} ${l.name}` : 'Practice'}</span></li>`;
+      })
+      .join('');
+  }
+
+  /* ───────── playing ───────── */
+
+  let round: Round;
+  let at = 0;
+
+  function score() {
+    return round.answers.filter((a, k) => a !== null && a === QUIZ[round.items[k].i].a).length;
+  }
+
+  function renderPips() {
+    $('pips').innerHTML = round.items
+      .map((it, k) => {
+        const a = round.answers[k];
+        const s = a === null ? (k === at ? 'now' : '') : a === QUIZ[it.i].a ? 'right' : 'wrong';
+        return `<li data-s="${s}"></li>`;
+      })
+      .join('');
+  }
+
+  function combo() {
+    let n = 0;
+    for (let k = at; k >= 0; k--) {
+      const a = round.answers[k];
+      if (a === null) continue;
+      if (a !== QUIZ[round.items[k].i].a) break;
+      n++;
+    }
+    $('combo').textContent = n >= 3 ? `🔥 ${n} in a row` : '';
+  }
+
+  function renderQuestion() {
+    const it = round.items[at];
+    const x = QUIZ[it.i];
+    const u = unitOf[x.t];
+    const card = $('qcard');
+    card.style.setProperty('--c', u.color);
+    card.classList.remove('enter');
+    void card.offsetWidth;
+    card.classList.add('enter');
+    $('qnum').textContent = String(at + 1);
+    $('tally').textContent = String(score());
+    $('qunit').textContent = u.name;
+    $('qtext').textContent = x.q;
+    $('choices').innerHTML = it.order
+      .map(
+        (c, k) =>
+          `<button type="button" class="choice" data-k="${k}"><span class="key">${k + 1}</span><span>${esc(c)}</span><span class="mark" aria-hidden="true"></span></button>`,
+      )
+      .join('');
+    $('feedback').hidden = true;
+    renderPips();
+    combo();
+    const picked = round.answers[at];
+    if (picked !== null) reveal(picked, false);
+  }
+
+  function reveal(picked: string, fresh: boolean) {
+    const it = round.items[at];
+    const x = QUIZ[it.i];
+    const ok = picked === x.a;
+    document.querySelectorAll<HTMLButtonElement>('.choice').forEach((b) => {
+      const c = it.order[Number(b.dataset.k)];
+      b.disabled = true;
+      b.dataset.r = c === x.a ? 'right' : c === picked ? 'wrong' : 'other';
+      b.classList.toggle('picked', c === picked);
+      b.querySelector('.mark')!.textContent = c === x.a ? '✓' : c === picked ? '✗' : '';
+    });
+    const v = $('verdict');
+    v.dataset.ok = String(ok);
+    v.textContent = ok ? pick(['Correct!', 'Nice!', 'Yes!', 'Got it!']) : `Not quite. The answer is "${x.a}".`;
+    $('explain').textContent = x.e;
+    $('next').textContent = at === ROUND - 1 ? 'See my results →' : 'Next question →';
+    $('feedback').hidden = false;
+    $('tally').textContent = String(score());
+    renderPips();
+    combo();
+    if (fresh) $('next').focus({ preventScroll: true });
+  }
+  const pick = <T,>(a: T[]) => a[Math.floor(Math.random() * a.length)];
+
+  function answer(k: number) {
+    if (round.answers[at] !== null) return;
+    round.answers[at] = round.items[at].order[k];
+    write(ROUND_KEY, round);
+    reveal(round.answers[at]!, true);
+  }
+
+  function next() {
+    if (round.answers[at] === null) return;
+    if (at < ROUND - 1) {
+      at++;
+      renderQuestion();
+      window.scrollTo({ top: 0 });
+    } else finish();
+  }
+
+  function play(r: Round) {
+    round = r;
+    at = Math.max(0, r.answers.findIndex((a) => a === null));
+    write(ROUND_KEY, round);
+    show('play');
+    renderQuestion();
+  }
+
+  /* ───────── results ───────── */
+
+  function finish() {
+    const before = bestScore();
+    const byTopic: Record<string, [number, number]> = {};
+    const missed: { k: number; x: (typeof QUIZ)[number]; yours: string }[] = [];
+    round.items.forEach((it, k) => {
+      const x = QUIZ[it.i];
+      byTopic[x.t] ??= [0, 0];
+      byTopic[x.t][1]++;
+      if (round.answers[k] === x.a) byTopic[x.t][0]++;
+      else missed.push({ k, x, yours: round.answers[k] ?? '' });
+    });
+    const s = score();
+    const attempt: Attempt = { id: round.id, at: new Date().toISOString(), score: s, total: ROUND, byTopic, missed: [...new Set(missed.map((m) => m.x.s))] };
+    saveAttempt(attempt);
+    setLastRound(round.items.map((it) => it.q));
+    clearRound();
+
+    const lvl = levelFor(s);
+    const medal = $('medal');
+    if (lvl) medal.dataset.medal = lvl.medal;
+    else delete medal.dataset.medal;
+    $('micon').textContent = lvl?.icon ?? '📚';
+    $('score').textContent = String(s);
+    $('mname').textContent = lvl ? `${lvl.name} · ${lvl.medal}` : 'Keep practicing';
+    $('mblurb').textContent = lvl?.blurb ?? 'Every round teaches you something. 9 gets you onto the City Council.';
+    const up = [...QUIZ_LEVELS].reverse().find((l) => l.at > s);
+    $('mnext').textContent = up ? `${up.at - s} more right next time for ${up.icon} ${up.name}.` : 'That is the top level. Can you get a perfect 20?';
+    if (s === ROUND) $('mnext').textContent = 'A perfect round. Nothing left to prove!';
+    $('newbest').hidden = !(s > before && getAttempts().length > 1);
+
+    const rows = units
+      .map((u) => ({ u, r: byTopic[u.key]?.[0] ?? 0, n: byTopic[u.key]?.[1] ?? 0 }))
+      .filter((t) => t.n)
+      .sort((a, b) => a.r / a.n - b.r / b.n);
+    $('r-topics').innerHTML = rows
+      .map(({ u, r, n }) => {
+        const ids = [...new Set(missed.filter((m) => m.x.t === u.key).map((m) => m.x.s))].sort((a, b) => a - b);
+        const work =
+          r === n
+            ? `<div class="twork good"><strong>✓ All right.</strong></div>`
+            : `<div class="twork"><strong>${r / n >= 0.66 ? 'Almost there.' : 'Work on this.'}</strong> Study ${ids
+                .map((id) => `<a href="${base}/q/${id}/">Q${id}</a>`)
+                .join(' ')}</div>`;
+        return `<li class="topic" style="--c:${u.color};--p:${r / n}">
+          <span class="tname">${esc(u.short)}</span>
+          <span class="tbar"><span></span></span>
+          <span class="tnum">${r}/${n}</span>
+          ${work}
+        </li>`;
+      })
+      .join('');
+
+    $('missed-wrap').hidden = missed.length === 0;
+    $('missed').innerHTML = missed
+      .map(
+        ({ x, yours }) => `<li style="--c:${unitOf[x.t].color}">
+          <p class="mq">${esc(x.q)}</p>
+          <p class="yours">✗ You said: ${esc(yours)}</p>
+          <p class="right">✓ Answer: ${esc(x.a)}</p>
+          <p class="mx">${esc(x.e)}</p>
+          <a class="mlink" href="${base}/q/${x.s}/">Study question ${x.s} →</a>
+        </li>`,
+      )
+      .join('');
+
+    show('done');
+    if (s >= 12) {
+      const r = $('mdisc').getBoundingClientRect();
+      setTimeout(() => confetti(r.left + r.width / 2, r.top + r.height / 2, s >= 18 ? 140 : 80), 250);
+    }
+    runSync($('r-sync'));
+  }
+
+  async function runSync(el: HTMLElement) {
+    if (!syncEnabled()) {
+      el.textContent = 'Results saved on this device.';
+      return;
+    }
+    el.textContent = 'Saving results to GitHub…';
+    const r = await syncQuiz();
+    el.textContent = r.ok ? 'Results saved to GitHub.' : `⚠ ${r.message}`;
+    if (!screens.start.hidden) renderStart();
+  }
+
+  /* ───────── wiring ───────── */
+
+  $('begin').addEventListener('click', () => {
+    clearRound();
+    play(buildRound());
+  });
+  $('resume').addEventListener('click', () => {
+    const r = savedRound();
+    if (r) play(r);
+  });
+  $('choices').addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLButtonElement>('.choice');
+    if (b) answer(Number(b.dataset.k));
+  });
+  $('next').addEventListener('click', next);
+  $('quit').addEventListener('click', () => {
+    show('start');
+    renderStart();
+  });
+  $('again').addEventListener('click', () => play(buildRound()));
+  $('back').addEventListener('click', () => {
+    show('start');
+    renderStart();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (screens.play.hidden || e.metaKey || e.ctrlKey || e.altKey) return;
+    const n = Number(e.key);
+    if (n >= 1 && n <= 4) answer(n - 1);
+    else if (e.key === 'Enter' && round.answers[at] !== null && document.activeElement?.id !== 'next') {
+      e.preventDefault();
+      next();
+    }
+  });
+
+  renderStart();
+  runSync($('syncline'));
+</script>

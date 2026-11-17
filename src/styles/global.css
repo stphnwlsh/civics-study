@@ -320,6 +320,13 @@ table.mini th {
   .topnav a {
     font-size: 0.82rem;
     padding: 6px 7px;
+    white-space: nowrap;
+  }
+}
+/* four nav links don't fit beside the name on a phone, so the logo alone links home */
+@media (max-width: 440px) {
+  .brand-text {
+    display: none;
   }
 }
 

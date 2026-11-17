@@ -44,6 +44,27 @@ The home page tracks progress, picks up where she left off, keeps a review list 
 *Review again* or *Mostly there*, and can copy every answer as plain text to paste into a document. There's
 also an A–Z page of every key term across all 47 questions.
 
+### The final quiz
+
+When the studying is done, the **Quiz** tab is the dress rehearsal. Each round pulls 20 multiple-choice
+questions from a pool of 120+, three or four from every unit, and tries not to repeat the last round. She
+finds out right away whether each answer was right, with a one-line explanation either way.
+
+A round ends with a medal:
+
+| Score | Level | Medal |
+| --- | --- | --- |
+| 18–20 | ⚖️ Supreme Court | Platinum |
+| 15–17 | 🦅 Senate | Gold |
+| 12–14 | ⭐ Governor | Silver |
+| 9–11 | 🏛️ City Council | Bronze |
+
+Every question is tagged with its unit and the study question it came from, so the results break down
+by topic and link straight back to the questions worth another look. Every round is kept, so the Quiz tab
+also shows a chart of her scores over time, her best, and which unit has been weakest over the last
+five rounds. She can take it as many times as she likes, and a half-finished round picks up where she
+stopped.
+
 ## The backup answers
 
 Each one is written at a strong 8th grade reading level and tries hard to be neutral on anything political,
@@ -62,7 +83,9 @@ not the only right answer. The teacher and the textbook still win.
 Answers save to the browser instantly, so nothing is lost if the Wi-Fi drops. They also save to a **private**
 GitHub repo, one Markdown file per question (`notes/q01.md` … `notes/q47.md`), so her work survives a cleared
 browser and follows her to another computer. It also means her notes are plain files she can read
-on github.com, long after the test.
+on github.com, long after the test. Quiz rounds go in the same repo as `quiz/results.md`: a table of every
+round that reads nicely on GitHub (handy for a parent checking in), with the data the site needs tucked
+in at the bottom.
 
 Setting that up on a device:
 

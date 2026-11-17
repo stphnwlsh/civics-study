@@ -19,6 +19,7 @@ const units = Object.entries(TOPICS).map(([key, t]) => ({ key, ...t, count: QUES
       </p>
       <div class="cta">
         <a class="btn primary" id="continue" href={`${base}/q/1/`}>Start with question 1 →</a>
+        <a class="btn" href={`${base}/quiz/`}>🏆 Take the final quiz</a>
         <button type="button" class="btn" id="copy-all">Copy all my answers</button>
         <span class="copied" id="copied" role="status" aria-live="polite"></span>
       </div>
