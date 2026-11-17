@@ -38,6 +38,8 @@ Kept light on purpose, so it feels like a nudge and not a slot machine:
 - **Three stars per question:** *Write it* (20+ words), *Check it* (most of the self-check ticked) and *Nail it* (rated herself "Nailed it").
 - **Ranks** climb the ladder of civic life as stars add up, from Registered Voter through Poll Worker, City Council Member and U.S. Senator to Supreme Court Justice.
 - **Unit stickers** in the spirit of an "I Voted" sticker, one for each of the six units, earned by answering every question in it.
+- **Campaign season decor:** yard signs, "I Voted!" stickers, a campaign button and bunting in the page
+  margins (or lined up above the footer on a phone), over a faint pattern of stars. Click a sticker.
 - A **study streak**, and a small burst of confetti for "Nailed it" and promotions (skipped for anyone who prefers reduced motion).
 
 The home page tracks progress, picks up where she left off, keeps a review list of anything marked
@@ -150,6 +152,9 @@ encrypt, publish. One-time setup:
 
 1. **Settings → Pages → Source:** *GitHub Actions*
 2. **Settings → Secrets and variables → Actions → New repository secret:** `SITE_PASSWORD`
+3. *(Optional)* a second secret, `STUDENT_NAME`, puts a first name on the yard signs and campaign buttons.
+   It's a secret so the name only ever lands inside the encrypted pages, not in this public repo. Without
+   it, the signs say "Vote for You".
 
 If the secret is missing the workflow stops before publishing, rather than putting an unlocked copy online.
 

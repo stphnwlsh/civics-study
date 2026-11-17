@@ -30,6 +30,8 @@
 
   --radius: 10px;
   --shadow: 0 1px 2px rgb(27 36 64 / 0.06), 0 4px 16px rgb(27 36 64 / 0.05);
+  /* faint stars and ballots behind everything, like campaign stationery */
+  --pattern: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><g fill='%231b2440' fill-opacity='.045' stroke-opacity='.045'><path transform='translate%2830 40%29 scale%281%29 rotate%280%29' d='M0-10l2.9 6 6.6.9-4.8 4.6 1.2 6.5L0 4.9l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z'/><path transform='translate%28170 25%29 scale%280.7%29 rotate%2815%29' d='M0-10l2.9 6 6.6.9-4.8 4.6 1.2 6.5L0 4.9l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z'/><path transform='translate%28110 120%29 scale%281.2%29 rotate%28-10%29' d='M0-10l2.9 6 6.6.9-4.8 4.6 1.2 6.5L0 4.9l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z'/><path transform='translate%28215 170%29 scale%280.8%29 rotate%288%29' d='M0-10l2.9 6 6.6.9-4.8 4.6 1.2 6.5L0 4.9l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z'/><path transform='translate%2845 200%29 scale%280.9%29 rotate%28-20%29' d='M0-10l2.9 6 6.6.9-4.8 4.6 1.2 6.5L0 4.9l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z'/><path d='M150 210l7 7 14-15' fill='none' stroke-width='4' stroke-linecap='round' stroke-linejoin='round' stroke='%231b2440'/></g></svg>");
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
@@ -53,6 +55,7 @@
     --gold: #f5c542;
     --gold-soft: #3a3115;
     --shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+    --pattern: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><g fill='%23e7eaf2' fill-opacity='.04' stroke-opacity='.04'><path transform='translate%2830 40%29 scale%281%29 rotate%280%29' d='M0-10l2.9 6 6.6.9-4.8 4.6 1.2 6.5L0 4.9l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z'/><path transform='translate%28170 25%29 scale%280.7%29 rotate%2815%29' d='M0-10l2.9 6 6.6.9-4.8 4.6 1.2 6.5L0 4.9l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z'/><path transform='translate%28110 120%29 scale%281.2%29 rotate%28-10%29' d='M0-10l2.9 6 6.6.9-4.8 4.6 1.2 6.5L0 4.9l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z'/><path transform='translate%28215 170%29 scale%280.8%29 rotate%288%29' d='M0-10l2.9 6 6.6.9-4.8 4.6 1.2 6.5L0 4.9l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z'/><path transform='translate%2845 200%29 scale%280.9%29 rotate%28-20%29' d='M0-10l2.9 6 6.6.9-4.8 4.6 1.2 6.5L0 4.9l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z'/><path d='M150 210l7 7 14-15' fill='none' stroke-width='4' stroke-linecap='round' stroke-linejoin='round' stroke='%23e7eaf2'/></g></svg>");
     color-scheme: dark;
   }
 }
@@ -76,6 +79,7 @@
   --gold: #f5c542;
   --gold-soft: #3a3115;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+  --pattern: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><g fill='%23e7eaf2' fill-opacity='.04' stroke-opacity='.04'><path transform='translate%2830 40%29 scale%281%29 rotate%280%29' d='M0-10l2.9 6 6.6.9-4.8 4.6 1.2 6.5L0 4.9l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z'/><path transform='translate%28170 25%29 scale%280.7%29 rotate%2815%29' d='M0-10l2.9 6 6.6.9-4.8 4.6 1.2 6.5L0 4.9l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z'/><path transform='translate%28110 120%29 scale%281.2%29 rotate%28-10%29' d='M0-10l2.9 6 6.6.9-4.8 4.6 1.2 6.5L0 4.9l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z'/><path transform='translate%28215 170%29 scale%280.8%29 rotate%288%29' d='M0-10l2.9 6 6.6.9-4.8 4.6 1.2 6.5L0 4.9l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z'/><path transform='translate%2845 200%29 scale%280.9%29 rotate%28-20%29' d='M0-10l2.9 6 6.6.9-4.8 4.6 1.2 6.5L0 4.9l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z'/><path d='M150 210l7 7 14-15' fill='none' stroke-width='4' stroke-linecap='round' stroke-linejoin='round' stroke='%23e7eaf2'/></g></svg>");
   color-scheme: dark;
 }
 
@@ -89,7 +93,7 @@ html {
 }
 body {
   margin: 0;
-  background: var(--paper);
+  background: var(--paper) var(--pattern);
   color: var(--ink);
   font: 400 1.0625rem/1.65 var(--font-body);
 }

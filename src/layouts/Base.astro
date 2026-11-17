@@ -1,5 +1,6 @@
 ---
 import '../styles/global.css';
+import Decor from '../components/Decor.astro';
 
 interface Props {
   title: string;
@@ -48,6 +49,7 @@ const pageTitle = title === 'Civics Study' ? title : `${title} · Civics Study`;
       </div>
     </header>
     <slot />
+    <Decor page={current === 'question' || current === 'quiz' || current === 'glossary' || current === 'settings' ? current : 'home'} />
     <footer class="footer">
       <div class="wrap">
         Backup answers are researched starting points, not the only right answer. Your teacher and textbook come first.
