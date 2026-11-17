@@ -15,6 +15,11 @@ updates:
     directory: "/"
     patterns: ["*"]
     multi-ecosystem-group: "monthly-dependencies"
+    ignore:
+      # The type check in `npm run build` (@astrojs/check) only supports TypeScript 5 and 6, so a
+      # jump to 7 breaks `npm ci` and the deploy. Drop this once @astrojs/check supports 7.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
